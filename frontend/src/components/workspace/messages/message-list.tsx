@@ -70,6 +70,10 @@ import { cn } from "@/lib/utils";
 
 import { ArtifactFileList } from "../artifacts/artifact-file-list";
 import { CopyButton } from "../copy-button";
+import {
+  InfluencerResultRenderer,
+  isInfluencerToolMessage,
+} from "../influencer/messages";
 import { useMaybeSidecar } from "../sidecar/context";
 import { Tooltip } from "../tooltip";
 
@@ -972,6 +976,49 @@ export function MessageList({
                 </div>
               );
             }
+
+            // Render influencer tool result messages as custom cards.
+            // These arrive in assistant:processing groups alongside the AI
+            // tool-call messages. We render the result cards inline and
+            // exclude them from the MessageGroup so results aren't doubled.
+            const influencerMsgs = group.messages.filter(
+              isInfluencerToolMessage,
+            );
+            if (influencerMsgs.length > 0) {
+              const nonInfluencerMsgs = group.messages.filter(
+                (m) => !isInfluencerToolMessage(m),
+              );
+              return (
+                <div key={"group-" + group.id} className="w-full">
+                  {nonInfluencerMsgs.length > 0 && (
+                    <MessageGroup
+                      messages={nonInfluencerMsgs}
+                      isLoading={thread.isLoading}
+                      tokenDebugSteps={tokenDebugSteps.filter((step) =>
+                        nonInfluencerMsgs.some(
+                          (message) => message.id === step.messageId,
+                        ),
+                      )}
+                      showTokenDebugSummaries={
+                        tokenUsageInlineMode === "step_debug"
+                      }
+                    />
+                  )}
+                  {influencerMsgs.map((msg) => (
+                    <InfluencerResultRenderer
+                      key={msg.id}
+                      message={msg}
+                    />
+                  ))}
+                  {renderTokenUsage({
+                    messages: group.messages,
+                    turnUsageMessages,
+                    inlineDebug: false,
+                  })}
+                </div>
+              );
+            }
+
             return (
               <div key={"group-" + group.id} className="w-full">
                 <MessageGroup
