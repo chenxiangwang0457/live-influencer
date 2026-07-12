@@ -54,10 +54,10 @@ function buildCriteria(state: FilterState): Partial<SearchCriteria> {
   if (!Number.isNaN(followerMax)) criteria.follower_max = followerMax;
 
   const engagementMin = parseFloat(state.engagementMin);
-  if (!Number.isNaN(engagementMin)) criteria.engagement_min = engagementMin / 100;
+  if (!Number.isNaN(engagementMin)) criteria.engagement_min = engagementMin;
 
   const engagementMax = parseFloat(state.engagementMax);
-  if (!Number.isNaN(engagementMax)) criteria.engagement_max = engagementMax / 100;
+  if (!Number.isNaN(engagementMax)) criteria.engagement_max = engagementMax;
 
   const priceMin = parseFloat(state.priceMin);
   if (!Number.isNaN(priceMin)) criteria.price_min = priceMin;
