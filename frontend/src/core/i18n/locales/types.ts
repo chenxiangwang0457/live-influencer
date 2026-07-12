@@ -164,6 +164,7 @@ export interface Translations {
     demoChats: string;
     agents: string;
     scheduledTasks: string;
+    influencers: string;
     agentsDisabledTooltip: string;
     channels: string;
   };
