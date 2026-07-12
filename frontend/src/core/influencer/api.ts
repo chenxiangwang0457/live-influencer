@@ -87,7 +87,7 @@ export async function updateSelection(
   body: { title?: string; status?: string },
 ): Promise<void> {
   const res = await fetch(`${BASE}/selections/${id}`, {
-    method: "PATCH",
+    method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
