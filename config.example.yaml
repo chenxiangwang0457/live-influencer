@@ -1826,3 +1826,16 @@ scheduler:
 #         # Security features (enabled by default):
 #         pkce_enabled: true               # PKCE (S256) for authorization code flow
 #         nonce_enabled: true              # Nonce validation in ID tokens
+
+# ============================================================================
+# Influencer Module
+# ============================================================================
+# Configuration for the influencer selection data platform integrations.
+influencer:
+  data_platform:
+    provider: mock   # mock | douyin
+    douyin:
+      api_base: "https://api.chanmama.com"
+      api_key: "$CHANMAMA_API_KEY"
+      timeout: 10
+      rate_limit: 10
