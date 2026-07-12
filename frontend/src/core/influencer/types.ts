@@ -31,6 +31,7 @@ export interface Influencer {
   content_style: string[];
   brand_history: BrandHistory[];
   data_source: string;
+  total_score?: number;
 }
 
 export interface SearchCriteria {
