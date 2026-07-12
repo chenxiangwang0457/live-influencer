@@ -33,7 +33,7 @@ from app.gateway.routers import (
     threads,
     uploads,
 )
-from app.influencer.routers import influencers_router
+from app.influencer.routers import influencers_router, selections_router
 from app.gateway.trace_middleware import TraceMiddleware, resolve_trace_enabled
 from deerflow.config import app_config as deerflow_app_config
 from deerflow.logging_config import DEFAULT_LOG_DATE_FORMAT, DEFAULT_LOG_FORMAT, configure_logging
@@ -447,6 +447,9 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
 
     # Influencer API is mounted at /api/influencer
     app.include_router(influencers_router)
+
+    # Selection API is mounted at /api/influencer/selections
+    app.include_router(selections_router)
 
     # Agents API is mounted at /api/agents
     app.include_router(agents.router)
