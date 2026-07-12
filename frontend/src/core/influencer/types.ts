@@ -80,3 +80,42 @@ export function formatPrice(n: number): string {
   if (n >= 10000) return `${(n / 10000).toFixed(1)}万`;
   return `¥${n.toLocaleString()}`;
 }
+
+// ── Selection types ──
+
+export interface Selection {
+  id: string;
+  title: string;
+  goal?: string;
+  criteria?: Record<string, unknown>;
+  status: string;
+  created_at?: string;
+}
+
+export interface Candidate {
+  id: string;
+  influencer_id: string;
+  match_score: number;
+  match_reason?: string;
+  status: string;
+  added_by: string;
+  notes?: string;
+}
+
+export interface SelectionDetail extends Selection {
+  candidates: Candidate[];
+}
+
+export const CANDIDATE_STATUSES = [
+  { value: "shortlisted", label: "待联系" },
+  { value: "contacted", label: "已联系" },
+  { value: "selected", label: "已选定" },
+  { value: "rejected", label: "已拒绝" },
+] as const;
+
+export const SELECTION_STATUS_LABELS: Record<string, string> = {
+  draft: "草稿",
+  in_progress: "进行中",
+  completed: "已完成",
+  archived: "已归档",
+};

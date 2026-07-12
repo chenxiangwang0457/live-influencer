@@ -1,4 +1,10 @@
-import type { Influencer, PaginatedResponse, SearchCriteria } from "./types";
+import type {
+  Influencer,
+  PaginatedResponse,
+  SearchCriteria,
+  Selection,
+  SelectionDetail,
+} from "./types";
 
 const BASE = "/api/influencer";
 
@@ -37,4 +43,93 @@ export async function getInfluencerHistory(
   const res = await fetch(`${BASE}/${platformUid}/history`);
   if (!res.ok) throw new Error(`History failed: ${res.statusText}`);
   return res.json();
+}
+
+// ── Selection APIs ──
+
+export async function listSelections(params?: {
+  status?: string;
+  page?: number;
+  page_size?: number;
+}): Promise<PaginatedResponse<Selection>> {
+  const searchParams = new URLSearchParams();
+  if (params?.status) searchParams.set("status", params.status);
+  if (params?.page) searchParams.set("page", String(params.page));
+  if (params?.page_size) searchParams.set("page_size", String(params.page_size));
+
+  const res = await fetch(`${BASE}/selections?${searchParams}`);
+  if (!res.ok) throw new Error(`List selections failed: ${res.statusText}`);
+  return res.json();
+}
+
+export async function createSelection(body: {
+  title: string;
+  goal?: string;
+  criteria?: Record<string, unknown>;
+}): Promise<Selection> {
+  const res = await fetch(`${BASE}/selections`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Create selection failed: ${res.statusText}`);
+  return res.json();
+}
+
+export async function getSelection(id: string): Promise<SelectionDetail> {
+  const res = await fetch(`${BASE}/selections/${id}`);
+  if (!res.ok) throw new Error(`Get selection failed: ${res.statusText}`);
+  return res.json();
+}
+
+export async function updateSelection(
+  id: string,
+  body: { title?: string; status?: string },
+): Promise<void> {
+  const res = await fetch(`${BASE}/selections/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Update selection failed: ${res.statusText}`);
+}
+
+export async function addCandidate(
+  selectionId: string,
+  body: { influencer_id: string; added_by?: string },
+): Promise<{ id: string }> {
+  const res = await fetch(`${BASE}/selections/${selectionId}/candidates`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Add candidate failed: ${res.statusText}`);
+  return res.json();
+}
+
+export async function removeCandidate(
+  selectionId: string,
+  candidateId: string,
+): Promise<void> {
+  const res = await fetch(
+    `${BASE}/selections/${selectionId}/candidates/${candidateId}`,
+    { method: "DELETE" },
+  );
+  if (!res.ok) throw new Error(`Remove candidate failed: ${res.statusText}`);
+}
+
+export async function updateCandidate(
+  selectionId: string,
+  candidateId: string,
+  body: { status?: string; notes?: string },
+): Promise<void> {
+  const res = await fetch(
+    `${BASE}/selections/${selectionId}/candidates/${candidateId}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
+  if (!res.ok) throw new Error(`Update candidate failed: ${res.statusText}`);
 }
