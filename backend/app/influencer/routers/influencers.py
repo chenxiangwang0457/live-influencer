@@ -332,6 +332,49 @@ async def search_influencers(
 
 @router.get("/{platform_uid}")
 async def get_influencer_detail(request: Request, platform_uid: str):
+    import logging
+    _log = logging.getLogger(__name__)
+
+    from app.influencer.models.influencer import Influencer
+
+    # First try DB lookup by id or platform_uid
+    try:
+        sf = _get_session_factory()
+        _log.info(f"DB lookup for influencer: {platform_uid}")
+        async with sf() as session:
+            inf_result = await session.execute(
+                select(Influencer).where(
+                    (Influencer.id == platform_uid)
+                    | (Influencer.platform_uid == platform_uid)
+                )
+            )
+            db_inf = inf_result.scalar_one_or_none()
+            if db_inf is not None:
+                return {
+                    "platform": db_inf.platform,
+                    "platform_uid": db_inf.platform_uid,
+                    "nickname": db_inf.nickname,
+                    "avatar_url": db_inf.avatar_url or "",
+                    "category": db_inf.category,
+                    "sub_categories": db_inf.sub_categories or [],
+                    "followers_count": db_inf.followers_count,
+                    "avg_likes": db_inf.avg_likes,
+                    "avg_comments": db_inf.avg_comments,
+                    "avg_shares": db_inf.avg_shares,
+                    "engagement_rate": db_inf.engagement_rate,
+                    "avg_gmv": db_inf.avg_gmv,
+                    "avg_sales": db_inf.avg_sales,
+                    "price_range_min": db_inf.price_range_min,
+                    "price_range_max": db_inf.price_range_max,
+                    "demographics": db_inf.demographics or {},
+                    "content_style": db_inf.content_style or [],
+                    "brand_history": db_inf.brand_history or [],
+                    "data_source": db_inf.data_source,
+                }
+    except RuntimeError as e:
+        _log.warning(f"DB not available for influencer lookup: {e}")
+
+    # Fall back to adapter (mock data or external platform)
     adapter = request.app.state.influencer_adapter
     result = await adapter.get_influencer_detail(platform_uid)
     if result is None:
