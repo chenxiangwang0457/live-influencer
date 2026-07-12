@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import type { Influencer } from "@/core/influencer/types";
-import { formatFollowers, formatPrice } from "@/core/influencer/types";
+import { formatFollowers, formatPrice, getInitials } from "@/core/influencer/types";
 import { cn } from "@/lib/utils";
 
 interface InfluencerDetailProps {
@@ -52,10 +52,6 @@ function computeDimensionScores(inf: Influencer) {
     sales: salesScore,
     value: valueScore,
   };
-}
-
-function getInitials(nickname: string): string {
-  return nickname.slice(0, 2) || "?";
 }
 
 const DIMENSION_LABELS: Record<string, string> = {

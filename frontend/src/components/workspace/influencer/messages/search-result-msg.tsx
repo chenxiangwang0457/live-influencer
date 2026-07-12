@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { Influencer } from "@/core/influencer/types";
-import { formatFollowers, formatPrice } from "@/core/influencer/types";
+import { formatFollowers, formatPrice, getInitials } from "@/core/influencer/types";
 import { cn } from "@/lib/utils";
 
 interface SearchResultMsgProps {
@@ -21,10 +21,6 @@ function getScoreColor(score: number): string {
   if (score >= 60)
     return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400";
   return "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
-}
-
-function getInitials(nickname: string): string {
-  return nickname.slice(0, 2) || "?";
 }
 
 function MiniInfluencerCard({ influencer }: { influencer: Influencer }) {

@@ -81,6 +81,10 @@ export function formatPrice(n: number): string {
   return `¥${n.toLocaleString()}`;
 }
 
+export function getInitials(nickname: string): string {
+  return nickname.slice(0, 2) || "?";
+}
+
 // ── Selection types ──
 
 export interface Selection {

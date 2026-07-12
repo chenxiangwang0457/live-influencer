@@ -17,7 +17,7 @@ import {
   type Candidate,
   type Influencer,
 } from "@/core/influencer/types";
-import { formatFollowers, formatPrice } from "@/core/influencer/types";
+import { formatFollowers, formatPrice, getInitials } from "@/core/influencer/types";
 import { cn } from "@/lib/utils";
 
 interface CandidateTableProps {
@@ -29,10 +29,6 @@ interface CandidateTableProps {
   ) => void;
   onRemove: (candidateId: string) => void;
   onCompare: (influencers: Influencer[]) => void;
-}
-
-function getInitials(nickname: string): string {
-  return nickname.slice(0, 2) || "?";
 }
 
 function getScoreColor(score: number): string {

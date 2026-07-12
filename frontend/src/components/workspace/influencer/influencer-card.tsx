@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import type { Influencer } from "@/core/influencer/types";
-import { formatFollowers, formatPrice } from "@/core/influencer/types";
+import { formatFollowers, formatPrice, getInitials } from "@/core/influencer/types";
 import { cn } from "@/lib/utils";
 
 interface InfluencerCardProps {
@@ -17,10 +17,6 @@ function getScoreColor(score: number): string {
   if (score >= 80) return "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400";
   if (score >= 60) return "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400";
   return "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
-}
-
-function getInitials(nickname: string): string {
-  return nickname.slice(0, 2) || "?";
 }
 
 export function InfluencerCard({ influencer }: InfluencerCardProps) {

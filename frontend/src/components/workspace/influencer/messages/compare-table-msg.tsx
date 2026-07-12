@@ -4,7 +4,7 @@ import { useMemo } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import type { Influencer } from "@/core/influencer/types";
-import { formatFollowers, formatPrice } from "@/core/influencer/types";
+import { formatFollowers, formatPrice, getInitials } from "@/core/influencer/types";
 import { cn } from "@/lib/utils";
 
 interface CompareTableMsgProps {
@@ -63,10 +63,6 @@ const METRICS: MetricDef[] = [
     higherIsBetter: false,
   },
 ];
-
-function getInitials(nickname: string): string {
-  return nickname.slice(0, 2) || "?";
-}
 
 export function CompareTableMsg({ influencers }: CompareTableMsgProps) {
   const metricExtremes = useMemo(() => {
