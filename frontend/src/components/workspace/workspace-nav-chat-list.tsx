@@ -1,6 +1,6 @@
 "use client";
 
-import { BotIcon, CalendarClock, MessagesSquare, UserCheck } from "lucide-react";
+import { BotIcon, CalendarClock, ListTodo, MessagesSquare, UserCheck } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -100,6 +100,20 @@ export function WorkspaceNavChatList() {
             >
               <UserCheck />
               <span>{t.sidebar.influencers}</span>
+            </Link>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            isActive={pathname.startsWith("/workspace/influencer/selections")}
+            asChild
+          >
+            <Link
+              className="text-muted-foreground"
+              href="/workspace/influencer/selections"
+            >
+              <ListTodo />
+              <span>{t.sidebar.influencerSelections}</span>
             </Link>
           </SidebarMenuButton>
         </SidebarMenuItem>

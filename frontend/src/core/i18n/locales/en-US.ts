@@ -228,6 +228,7 @@ export const enUS: Translations = {
     agents: "Agents",
     scheduledTasks: "Scheduled tasks",
     influencers: "Influencers",
+    influencerSelections: "Selections",
     agentsDisabledTooltip: "Feature not enabled",
   },
 

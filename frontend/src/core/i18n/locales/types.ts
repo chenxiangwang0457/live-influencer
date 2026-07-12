@@ -165,6 +165,7 @@ export interface Translations {
     agents: string;
     scheduledTasks: string;
     influencers: string;
+    influencerSelections: string;
     agentsDisabledTooltip: string;
     channels: string;
   };

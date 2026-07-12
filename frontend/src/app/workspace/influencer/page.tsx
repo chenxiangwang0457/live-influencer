@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -142,7 +143,12 @@ export default function InfluencerSquarePage() {
       <WorkspaceHeader />
       <WorkspaceBody>
         <div className="mx-auto flex w-full max-w-(--container-width-md) flex-col gap-4 p-6">
-          <h1 className="text-2xl font-semibold">达人广场</h1>
+          <div className="flex items-center justify-between">
+            <h1 className="text-2xl font-semibold">达人广场</h1>
+            <Button asChild>
+              <Link href="/workspace/influencer/selections">选人任务</Link>
+            </Button>
+          </div>
 
           {/* Search Bar */}
           <div className="flex gap-2">
