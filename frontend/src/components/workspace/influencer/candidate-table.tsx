@@ -1,6 +1,7 @@
 "use client";
 
-import { ArrowUpDown, Trash2 } from "lucide-react";
+import { ArrowUpDown, ExternalLink, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -178,7 +179,13 @@ export function CandidateTable({
                   />
                 </td>
                 <td className="px-3 py-3">
-                  <div className="flex items-center gap-2">
+                  <Link
+                    href={`/workspace/influencer/${inf.platform_uid}`}
+                    className="hover:text-primary flex items-center gap-2 transition-colors"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="查看达人详情"
+                  >
                     <Avatar className="size-8 shrink-0">
                       <AvatarImage src={inf.avatar_url} alt={inf.nickname} />
                       <AvatarFallback className="text-xs">
@@ -188,7 +195,8 @@ export function CandidateTable({
                     <span className="truncate font-medium">
                       {inf.nickname}
                     </span>
-                  </div>
+                    <ExternalLink className="text-muted-foreground hidden size-3 shrink-0 sm:inline" />
+                  </Link>
                 </td>
                 <td className="hidden px-3 py-3 sm:table-cell">
                   <Badge variant="secondary" className="text-xs">
