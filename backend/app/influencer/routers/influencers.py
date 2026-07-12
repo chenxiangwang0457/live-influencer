@@ -198,6 +198,8 @@ async def update_selection(selection_id: str, body: UpdateSelectionRequest, requ
 @router.post("/selections/{selection_id}/candidates")
 async def add_candidate(selection_id: str, body: AddCandidateRequest, request: Request):
     """Add a candidate influencer to a selection."""
+    from app.influencer.models.influencer import Influencer
+
     sf = _get_session_factory()
     async with sf() as session:
         sel_result = await session.execute(
@@ -206,9 +208,30 @@ async def add_candidate(selection_id: str, body: AddCandidateRequest, request: R
         if sel_result.scalar_one_or_none() is None:
             return JSONResponse(status_code=404, content={"detail": "Selection not found"})
 
+        # Look up influencer by platform_uid or id
+        inf_result = await session.execute(
+            select(Influencer).where(
+                (Influencer.platform_uid == body.influencer_id)
+                | (Influencer.id == body.influencer_id)
+            )
+        )
+        influencer = inf_result.scalar_one_or_none()
+
+        # If not in DB, sync from adapter
+        if influencer is None:
+            adapter = request.app.state.influencer_adapter
+            dto = await adapter.get_influencer_detail(body.influencer_id)
+            if dto is None:
+                return JSONResponse(
+                    status_code=404, content={"detail": "Influencer not found"}
+                )
+            influencer = Influencer(**dto.to_orm_dict())
+            session.add(influencer)
+            await session.flush()
+
         link = SelectionInfluencer(
             selection_id=selection_id,
-            influencer_id=body.influencer_id,
+            influencer_id=influencer.id,
             added_by=body.added_by,
         )
         session.add(link)
