@@ -182,8 +182,6 @@ export function CandidateTable({
                   <Link
                     href={`/workspace/influencer/${inf.platform_uid}`}
                     className="hover:text-primary flex items-center gap-2 transition-colors"
-                    target="_blank"
-                    rel="noopener noreferrer"
                     title="查看达人详情"
                   >
                     <Avatar className="size-8 shrink-0">

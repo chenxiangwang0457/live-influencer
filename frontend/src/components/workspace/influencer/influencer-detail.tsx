@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft, ShieldAlert } from "lucide-react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -91,16 +91,25 @@ export function InfluencerDetail({ influencer }: InfluencerDetailProps) {
     [influencer.brand_history],
   );
 
+  const router = useRouter();
+
   return (
     <div className="mx-auto flex w-full max-w-(--container-width-md) flex-col gap-6 px-4 py-6">
       {/* Back link */}
-      <Link
-        href="/workspace/influencer"
-        className="text-muted-foreground hover:text-foreground flex w-fit items-center gap-1 text-sm transition-colors"
+      <button
+        type="button"
+        onClick={() => {
+          if (window.history.length > 1) {
+            router.back();
+          } else {
+            router.push("/workspace/influencer");
+          }
+        }}
+        className="text-muted-foreground hover:text-foreground flex w-fit cursor-pointer items-center gap-1 text-sm transition-colors"
       >
         <ArrowLeft className="size-4" />
-        返回达人广场
-      </Link>
+        返回上一页
+      </button>
 
       {/* ── Profile Header ── */}
       <Card>
