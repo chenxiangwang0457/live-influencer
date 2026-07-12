@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AddInfluencerDialog } from "@/components/workspace/influencer/add-influencer-dialog";
 import { CandidateTable } from "@/components/workspace/influencer/candidate-table";
 import { CompareDrawer } from "@/components/workspace/influencer/compare-drawer";
 import {
@@ -71,6 +72,7 @@ export default function SelectionDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [compareOpen, setCompareOpen] = useState(false);
   const [compareList, setCompareList] = useState<Influencer[]>([]);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const fetchDetail = useCallback(async (selId: string, signal?: AbortSignal) => {
@@ -252,7 +254,7 @@ export default function SelectionDetailPage() {
                   <Sparkles className="mr-1 size-4" />
                   AI推荐
                 </Button>
-                <Button size="sm">
+                <Button size="sm" onClick={() => setAddDialogOpen(true)}>
                   <Plus className="mr-1 size-4" />
                   手动添加达人
                 </Button>
@@ -274,6 +276,18 @@ export default function SelectionDetailPage() {
                 onCompare={handleCompare}
               />
             </div>
+
+            {/* Add Influencer Dialog */}
+            {selectionId && (
+              <AddInfluencerDialog
+                open={addDialogOpen}
+                onOpenChange={setAddDialogOpen}
+                selectionId={selectionId}
+                onAdded={() => {
+                  void fetchDetail(selectionId);
+                }}
+              />
+            )}
 
             {/* Compare Drawer */}
             <CompareDrawer
