@@ -84,7 +84,7 @@ export async function getSelection(id: string): Promise<SelectionDetail> {
 
 export async function updateSelection(
   id: string,
-  body: { title?: string; status?: string },
+  body: { title?: string; goal?: string; status?: string },
 ): Promise<void> {
   const res = await fetch(`${BASE}/selections/${id}`, {
     method: "PUT",

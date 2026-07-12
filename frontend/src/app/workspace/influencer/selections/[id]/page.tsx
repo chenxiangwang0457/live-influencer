@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Plus, Sparkles } from "lucide-react";
+import { ArrowLeft, Pencil, Plus, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -8,7 +8,23 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 import { AddInfluencerDialog } from "@/components/workspace/influencer/add-influencer-dialog";
 import { CandidateTable } from "@/components/workspace/influencer/candidate-table";
 import { CompareDrawer } from "@/components/workspace/influencer/compare-drawer";
@@ -23,6 +39,7 @@ import {
   getSelection,
   removeCandidate,
   updateCandidate,
+  updateSelection,
 } from "@/core/influencer/api";
 import {
   formatFollowers,
@@ -77,6 +94,11 @@ export default function SelectionDetailPage() {
   const [compareList, setCompareList] = useState<Influencer[]>([]);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [report, setReport] = useState<string | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editTitle, setEditTitle] = useState("");
+  const [editGoal, setEditGoal] = useState("");
+  const [editStatus, setEditStatus] = useState("");
+  const [saving, setSaving] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const fetchDetail = useCallback(async (selId: string, signal?: AbortSignal) => {
@@ -229,6 +251,33 @@ export default function SelectionDetailPage() {
     toast.success("报告已生成");
   }, [detail, influencerMap]);
 
+  const openEdit = useCallback(() => {
+    if (!detail) return;
+    setEditTitle(detail.title);
+    setEditGoal(detail.goal ?? "");
+    setEditStatus(detail.status);
+    setEditOpen(true);
+  }, [detail]);
+
+  const handleSave = useCallback(async () => {
+    if (!selectionId || !detail) return;
+    setSaving(true);
+    try {
+      await updateSelection(selectionId, {
+        title: editTitle.trim() || undefined,
+        goal: editGoal.trim() || undefined,
+        status: editStatus || undefined,
+      });
+      toast.success("已保存");
+      setEditOpen(false);
+      void fetchDetail(selectionId);
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "保存失败");
+    } finally {
+      setSaving(false);
+    }
+  }, [selectionId, detail, editTitle, editGoal, editStatus, fetchDetail]);
+
   const candidateCount = detail?.candidates.length ?? 0;
 
   return (
@@ -288,6 +337,14 @@ export default function SelectionDetailPage() {
                 <Button
                   variant="outline"
                   size="sm"
+                  onClick={openEdit}
+                >
+                  <Pencil className="mr-1 size-4" />
+                  编辑
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={handleAiRecommend}
                 >
                   <Sparkles className="mr-1 size-4" />
@@ -318,6 +375,70 @@ export default function SelectionDetailPage() {
                 onCompare={handleCompare}
               />
             </div>
+
+            {/* Edit Dialog */}
+            <Dialog open={editOpen} onOpenChange={setEditOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>编辑选人任务</DialogTitle>
+                </DialogHeader>
+                <div className="flex flex-col gap-3">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium">
+                      任务名称
+                    </label>
+                    <Input
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium">
+                      选人目标
+                    </label>
+                    <Textarea
+                      rows={3}
+                      value={editGoal}
+                      onChange={(e) => setEditGoal(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-sm font-medium">
+                      状态
+                    </label>
+                    <Select
+                      value={editStatus}
+                      onValueChange={setEditStatus}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="draft">草稿</SelectItem>
+                        <SelectItem value="in_progress">进行中</SelectItem>
+                        <SelectItem value="completed">已完成</SelectItem>
+                        <SelectItem value="archived">已归档</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setEditOpen(false)}
+                    disabled={saving}
+                  >
+                    取消
+                  </Button>
+                  <Button
+                    onClick={handleSave}
+                    disabled={!editTitle.trim() || saving}
+                  >
+                    {saving ? "保存中..." : "保存"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
 
             {/* Add Influencer Dialog */}
             {selectionId && (

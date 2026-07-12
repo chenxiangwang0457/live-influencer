@@ -384,6 +384,28 @@ async def get_influencer_detail(request: Request, platform_uid: str):
 
 @router.get("/{platform_uid}/history")
 async def get_influencer_history(request: Request, platform_uid: str):
+    from app.influencer.models.influencer import Influencer
+
+    # First try DB lookup
+    try:
+        sf = _get_session_factory()
+        async with sf() as session:
+            inf_result = await session.execute(
+                select(Influencer).where(
+                    (Influencer.id == platform_uid)
+                    | (Influencer.platform_uid == platform_uid)
+                )
+            )
+            db_inf = inf_result.scalar_one_or_none()
+            if db_inf is not None:
+                return {
+                    "platform_uid": db_inf.platform_uid,
+                    "brand_history": db_inf.brand_history or [],
+                }
+    except RuntimeError:
+        pass
+
+    # Fall back to adapter
     adapter = request.app.state.influencer_adapter
     result = await adapter.get_influencer_detail(platform_uid)
     if result is None:

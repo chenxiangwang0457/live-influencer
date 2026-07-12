@@ -15,6 +15,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -32,21 +39,15 @@ import {
 } from "@/core/influencer/types";
 import { cn } from "@/lib/utils";
 
-function getStatusBadgeVariant(
-  status: string,
-): "default" | "secondary" | "destructive" | "outline" {
-  switch (status) {
-    case "in_progress":
-      return "default";
-    case "completed":
-      return "secondary";
-    case "draft":
-    case "archived":
-      return "outline";
-    default:
-      return "outline";
-  }
-}
+const PAGE_SIZE = 10;
+
+const STATUS_OPTIONS = [
+  { value: "all", label: "全部" },
+  { value: "draft", label: "草稿" },
+  { value: "in_progress", label: "进行中" },
+  { value: "completed", label: "已完成" },
+  { value: "archived", label: "已归档" },
+];
 
 function getStatusClassName(status: string): string {
   switch (status) {
@@ -93,6 +94,9 @@ function TableSkeleton() {
 
 export default function SelectionsPage() {
   const [selections, setSelections] = useState<Selection[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -101,38 +105,46 @@ export default function SelectionsPage() {
   const [creating, setCreating] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
   const fetchSelections = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
     try {
-      const data = await listSelections();
+      const params: Record<string, unknown> = {
+        page,
+        page_size: PAGE_SIZE,
+      };
+      if (statusFilter !== "all") {
+        params.status = statusFilter;
+      }
+      const data = await listSelections(params);
       if (!signal?.aborted) {
         setSelections(data.data);
+        setTotal(data.total);
       }
     } catch (err: unknown) {
       if (signal?.aborted) return;
-      const message =
-        err instanceof Error ? err.message : "加载选人任务失败";
+      const message = err instanceof Error ? err.message : "加载选人任务失败";
       setError(message);
       toast.error(message);
     } finally {
-      if (!signal?.aborted) {
-        setLoading(false);
-      }
+      if (!signal?.aborted) setLoading(false);
     }
-  }, []);
+  }, [page, statusFilter]);
 
   useEffect(() => {
-    if (abortRef.current) {
-      abortRef.current.abort();
-    }
+    if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
     abortRef.current = controller;
     void fetchSelections(controller.signal);
-    return () => {
-      controller.abort();
-    };
+    return () => controller.abort();
   }, [fetchSelections]);
+
+  // Reset page when filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter]);
 
   useEffect(() => {
     document.title = "选人任务 - DeerFlow";
@@ -152,9 +164,7 @@ export default function SelectionsPage() {
       setCreateOpen(false);
       void fetchSelections();
     } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : "创建失败";
-      toast.error(message);
+      toast.error(err instanceof Error ? err.message : "创建失败");
     } finally {
       setCreating(false);
     }
@@ -165,15 +175,31 @@ export default function SelectionsPage() {
       <WorkspaceHeader />
       <WorkspaceBody>
         <div className="mx-auto flex w-full max-w-(--container-width-md) flex-col gap-4 p-6">
+          {/* Header */}
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-semibold">选人任务</h1>
             <Button onClick={() => setCreateOpen(true)}>新建任务</Button>
           </div>
 
+          {/* Status filter */}
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground text-sm">状态筛选：</span>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-32">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {error && !loading && (
-            <div className="text-destructive text-sm">
-              加载失败: {error}
-            </div>
+            <div className="text-destructive text-sm">加载失败: {error}</div>
           )}
 
           {loading && <TableSkeleton />}
@@ -181,56 +207,81 @@ export default function SelectionsPage() {
           {!loading && !error && selections.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
               <p className="text-lg">暂无选人任务</p>
-              <p className="mt-1 text-sm">
-                点击&quot;新建任务&quot;开始创建选人任务
-              </p>
+              <p className="mt-1 text-sm">点击&quot;新建任务&quot;开始创建选人任务</p>
             </div>
           )}
 
           {!loading && selections.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-sm">
-                <thead>
-                  <tr className="border-b">
-                    <th className="px-4 py-3 text-left font-medium">任务名称</th>
-                    <th className="hidden px-4 py-3 text-left font-medium sm:table-cell">
-                      状态
-                    </th>
-                    <th className="hidden px-4 py-3 text-left font-medium md:table-cell">
-                      创建时间
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selections.map((sel) => (
-                    <tr
-                      key={sel.id}
-                      className="border-b hover:bg-muted/50"
-                    >
-                      <td className="px-4 py-3">
-                        <Link
-                          href={`/workspace/influencer/selections/${sel.id}`}
-                          className="hover:text-primary font-medium transition-colors"
-                        >
-                          {sel.title}
-                        </Link>
-                      </td>
-                      <td className="hidden px-4 py-3 sm:table-cell">
-                        <Badge
-                          variant={getStatusBadgeVariant(sel.status)}
-                          className={cn("text-xs", getStatusClassName(sel.status))}
-                        >
-                          {SELECTION_STATUS_LABELS[sel.status] ?? sel.status}
-                        </Badge>
-                      </td>
-                      <td className="text-muted-foreground hidden px-4 py-3 md:table-cell">
-                        {formatDate(sel.created_at)}
-                      </td>
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="px-4 py-3 text-left font-medium">任务名称</th>
+                      <th className="hidden px-4 py-3 text-left font-medium sm:table-cell">
+                        状态
+                      </th>
+                      <th className="hidden px-4 py-3 text-left font-medium md:table-cell">
+                        创建时间
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {selections.map((sel) => (
+                      <tr
+                        key={sel.id}
+                        className="border-b hover:bg-muted/50"
+                      >
+                        <td className="px-4 py-3">
+                          <Link
+                            href={`/workspace/influencer/selections/${sel.id}`}
+                            className="hover:text-primary font-medium transition-colors"
+                          >
+                            {sel.title}
+                          </Link>
+                        </td>
+                        <td className="hidden px-4 py-3 sm:table-cell">
+                          <Badge
+                            variant="outline"
+                            className={cn("text-xs", getStatusClassName(sel.status))}
+                          >
+                            {SELECTION_STATUS_LABELS[sel.status] ?? sel.status}
+                          </Badge>
+                        </td>
+                        <td className="text-muted-foreground hidden px-4 py-3 md:table-cell">
+                          {formatDate(sel.created_at)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-4 pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page <= 1}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    上一页
+                  </Button>
+                  <span className="text-muted-foreground text-sm">
+                    第 {page} / {totalPages} 页 (共 {total} 个任务)
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page >= totalPages}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    下一页
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </WorkspaceBody>
@@ -241,15 +292,12 @@ export default function SelectionsPage() {
           <DialogHeader>
             <DialogTitle>新建选人任务</DialogTitle>
             <DialogDescription>
-              创建一个新的达人选拔任务，后续可添加候选达人并进行 AI
-              匹配分析。
+              创建一个新的达人选拔任务，后续可添加候选达人并进行 AI 匹配分析。
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3">
             <div>
-              <label className="mb-1 block text-sm font-medium">
-                任务名称
-              </label>
+              <label className="mb-1 block text-sm font-medium">任务名称</label>
               <Input
                 value={newTitle}
                 onChange={(e) => setNewTitle(e.target.value)}
@@ -257,9 +305,7 @@ export default function SelectionsPage() {
               />
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium">
-                选人目标 (可选)
-              </label>
+              <label className="mb-1 block text-sm font-medium">选人目标 (可选)</label>
               <Textarea
                 rows={3}
                 value={newGoal}
