@@ -232,3 +232,95 @@ class TestImports:
         assert DataPlatformAdapter is not None
         assert SearchCriteria is not None
         assert InfluencerDTO is not None
+
+
+@pytest.fixture
+def adapter():
+    from app.influencer.services.data_platform.mock import MockDataAdapter
+
+    return MockDataAdapter()
+
+
+@pytest.mark.asyncio
+async def test_platform_name(adapter):
+    assert adapter.platform_name == "douyin"
+
+
+@pytest.mark.asyncio
+async def test_health_check(adapter):
+    assert await adapter.health_check() is True
+
+
+@pytest.mark.asyncio
+async def test_search_returns_results(adapter):
+    criteria = SearchCriteria(platform="douyin", page_size=10)
+    results, total = await adapter.search_influencers(criteria)
+    assert len(results) == 10
+    assert total >= 10
+
+
+@pytest.mark.asyncio
+async def test_search_filter_by_category(adapter):
+    criteria = SearchCriteria(platform="douyin", category="美妆", page_size=50)
+    results, _ = await adapter.search_influencers(criteria)
+    assert len(results) > 0
+    for r in results:
+        assert r.category == "美妆"
+
+
+@pytest.mark.asyncio
+async def test_search_filter_by_followers(adapter):
+    criteria = SearchCriteria(
+        platform="douyin", follower_min=100000, follower_max=500000, page_size=50
+    )
+    results, _ = await adapter.search_influencers(criteria)
+    for r in results:
+        assert 100000 <= r.followers_count <= 500000
+
+
+@pytest.mark.asyncio
+async def test_search_filter_by_price(adapter):
+    criteria = SearchCriteria(platform="douyin", price_max=30000, page_size=50)
+    results, _ = await adapter.search_influencers(criteria)
+    for r in results:
+        assert r.price_range_min <= 30000
+
+
+@pytest.mark.asyncio
+async def test_search_sort_by_gmv_desc(adapter):
+    criteria = SearchCriteria(
+        platform="douyin", sort_by="avg_gmv", sort_order="desc", page_size=5
+    )
+    results, _ = await adapter.search_influencers(criteria)
+    gmvs = [r.avg_gmv for r in results]
+    assert gmvs == sorted(gmvs, reverse=True)
+
+
+@pytest.mark.asyncio
+async def test_search_pagination(adapter):
+    criteria1 = SearchCriteria(platform="douyin", page=1, page_size=5)
+    criteria2 = SearchCriteria(platform="douyin", page=2, page_size=5)
+    r1, _ = await adapter.search_influencers(criteria1)
+    r2, _ = await adapter.search_influencers(criteria2)
+    uids1 = {r.platform_uid for r in r1}
+    uids2 = {r.platform_uid for r in r2}
+    assert uids1.isdisjoint(uids2)
+
+
+@pytest.mark.asyncio
+async def test_get_detail_found(adapter):
+    # First search to get a known uid
+    criteria = SearchCriteria(page_size=1)
+    results, _ = await adapter.search_influencers(criteria)
+    uid = results[0].platform_uid
+    detail = await adapter.get_influencer_detail(uid)
+    assert detail is not None
+    assert detail.platform_uid == uid
+    assert detail.demographics != {}
+    assert len(detail.content_style) > 0
+
+
+@pytest.mark.asyncio
+async def test_get_detail_not_found(adapter):
+    detail = await adapter.get_influencer_detail("nonexistent_uid")
+    assert detail is None
