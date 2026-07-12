@@ -33,6 +33,7 @@ from app.gateway.routers import (
     threads,
     uploads,
 )
+from app.influencer.routers import influencers_router
 from app.gateway.trace_middleware import TraceMiddleware, resolve_trace_enabled
 from deerflow.config import app_config as deerflow_app_config
 from deerflow.logging_config import DEFAULT_LOG_DATE_FORMAT, DEFAULT_LOG_FORMAT, configure_logging
@@ -408,6 +409,11 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
     # configure_logging() at lifespan startup) out of sync with the middleware.
     app.add_middleware(TraceMiddleware, enabled=_resolve_trace_enabled_for_app_construction())
 
+    # Initialize influencer adapter before router registration
+    from app.influencer.services.data_platform.mock import MockDataAdapter
+
+    app.state.influencer_adapter = MockDataAdapter()
+
     # Include routers
     # Models API is mounted at /api/models
     app.include_router(models.router)
@@ -438,6 +444,9 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
 
     # Scheduled tasks API is mounted at /api/scheduled-tasks
     app.include_router(scheduled_tasks.router)
+
+    # Influencer API is mounted at /api/influencer
+    app.include_router(influencers_router)
 
     # Agents API is mounted at /api/agents
     app.include_router(agents.router)
