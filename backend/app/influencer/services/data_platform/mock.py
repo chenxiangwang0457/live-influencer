@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import random
-import uuid
 
 from app.influencer.services.data_platform.base import (
     DataPlatformAdapter,
