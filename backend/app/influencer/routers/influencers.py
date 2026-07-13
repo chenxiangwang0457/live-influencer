@@ -11,6 +11,11 @@ from sqlalchemy.orm import selectinload
 
 from app.influencer.models.selection import Selection, SelectionInfluencer
 from app.influencer.services.data_platform.base import SearchCriteria
+from app.influencer.services.errors import (
+    DataPlatformError,
+    MatchingError,
+    ScoringError,
+)
 
 router = APIRouter(prefix="/api/influencer", tags=["influencers"])
 
@@ -264,8 +269,32 @@ async def analyze_selection(selection_id: str, request: Request):
             )
             dtos.append(dto)
 
-        # Score all candidates
-        scored = engine.match_batch(dtos, criteria)
+        # Score all candidates (with fallback on error)
+        try:
+            scored = engine.match_batch(dtos, criteria)
+        except (MatchingError, ScoringError) as e:
+            from deerflow.tools.influencer.fallback import (
+                FallbackResult,
+                format_fallback_summary,
+            )
+
+            fallback = FallbackResult(all_failed=True)
+            report = f"# AI 分析暂不可用\n\n{format_fallback_summary(fallback)}\n\n错误详情: {e}"
+            sel.result_summary = report[:500]
+            await session.commit()
+            return {
+                "report": report,
+                "candidates": [
+                    {
+                        "id": c.id,
+                        "influencer_id": c.influencer_id,
+                        "match_score": 0,
+                        "match_reason": "AI 分析暂不可用",
+                    }
+                    for c in sel.candidates
+                ],
+                "fallback": True,
+            }
 
         # Update candidate match_scores in DB
         score_map = {r.influencer.platform_uid: r for r in scored}
@@ -785,7 +814,17 @@ async def search_influencers(
         page_size=page_size,
     )
     adapter = request.app.state.influencer_adapter
-    results, total = await adapter.search_influencers(criteria)
+    try:
+        results, total = await adapter.search_influencers(criteria)
+    except DataPlatformError as e:
+        return {
+            "data": [],
+            "total": 0,
+            "page": criteria.page,
+            "page_size": criteria.page_size,
+            "fallback": True,
+            "message": f"平台数据暂不可用: {e}",
+        }
     return {
         "data": [r.__dict__ for r in results],
         "total": total,
@@ -1045,7 +1084,13 @@ async def get_influencer_detail(request: Request, platform_uid: str):
 
     # Fall back to adapter (mock data or external platform)
     adapter = request.app.state.influencer_adapter
-    result = await adapter.get_influencer_detail(platform_uid)
+    try:
+        result = await adapter.get_influencer_detail(platform_uid)
+    except DataPlatformError as e:
+        return JSONResponse(
+            status_code=503,
+            content={"detail": f"平台数据暂不可用: {e}"},
+        )
     if result is None:
         return JSONResponse(status_code=404, content={"detail": "Influencer not found"})
     return result.__dict__
