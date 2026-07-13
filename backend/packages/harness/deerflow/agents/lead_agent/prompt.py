@@ -558,6 +558,7 @@ You: "Deploying to staging..." [proceed]
 - Avoid hardcoding `/mnt/user-data/...` inside generated scripts when a relative path from the workspace is enough
 - Final deliverables must be copied to `/mnt/user-data/outputs` and presented using `present_files` tool (⚠️ Skills are NOT deliverables — use `skill_manage` tool instead)
 {acp_section}
+{influencer_workflow_section}
 </working_directory>
 
 <response_style>
@@ -867,6 +868,37 @@ def _build_acp_section(*, app_config: AppConfig | None = None) -> str:
     )
 
 
+def _build_influencer_workflow_section() -> str:
+    """Build the influencer selection workflow section."""
+    return """\n**Influencer Selection Workflow (直播选达人):**
+
+When the user asks you to find or recommend influencers (达人) for live-stream e-commerce:
+
+<influencer_workflow>
+**Stage 1 — Understand requirements**: Clarify category, follower range, budget, and priorities.
+
+**Stage 2 — Search & filter**: Use `search_influencers` tool to find candidates. Apply the scoring engine's 4-dimension analysis automatically.
+
+**Stage 3 — Parallel deep analysis**: For the top 6-9 candidates, dispatch up to 3 parallel subagent tasks:
+- `fan-analyst`: analyze fan demographics match
+- `content-analyst`: analyze content style fit
+- `commercial-analyst`: analyze commercial value and ROI
+Once any analyst completes, dispatch `risk-scanner` for compliance check.
+
+**Stage 4 — Compare & report**: Use `compare_influencers` for side-by-side comparison, then `recommend_report` to generate a markdown recommendation.
+
+**Stage 5 — Confirm & track**: Present the top picks with reasoning. Save results to a selection task via the selections API for ongoing tracking.
+</influencer_workflow>
+
+**Fallback rules:**
+- If a subagent times out, mark that dimension as "暂不可用" and compute total with remaining dimensions
+- If risk scanner returns no results, mark risk as "未评估" (no score penalty)
+- If ALL subagents fail, fall back to pure numeric comparison without AI commentary
+- If search returns no results, suggest broadening criteria
+- **Core principle**: 宁可出少维度的结果，也不让用户白等或收空白页
+"""
+
+
 def _build_custom_mounts_section(*, app_config: AppConfig | None = None) -> str:
     """Build a prompt section for explicitly configured sandbox mounts."""
     if app_config is None:
@@ -943,6 +975,9 @@ def apply_prompt_template(
     custom_mounts_section = _build_custom_mounts_section(app_config=app_config)
     acp_and_mounts_section = "\n".join(section for section in (acp_section, custom_mounts_section) if section)
 
+    # Build influencer workflow section
+    influencer_workflow_section = _build_influencer_workflow_section()
+
     # Gate the "Skill First" instruction on the deferred discovery path:
     # legacy mode uses tool-agnostic wording; deferred mode references describe_skill.
     skill_first_reminder = (
@@ -966,4 +1001,5 @@ def apply_prompt_template(
         skill_first_reminder=skill_first_reminder,
         subagent_thinking=subagent_thinking,
         acp_section=acp_and_mounts_section,
+        influencer_workflow_section=influencer_workflow_section,
     )
