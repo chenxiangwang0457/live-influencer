@@ -1,7 +1,7 @@
 "use client";
 
-import { FileText } from "lucide-react";
-import { useState } from "react";
+import { Download, FileText } from "lucide-react";
+import { useCallback, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -13,6 +13,7 @@ import {
 
 interface Props {
   report: string;
+  filename?: string;
 }
 
 function stripBasicMarkdown(md: string): string {
@@ -28,8 +29,20 @@ function stripBasicMarkdown(md: string): string {
     .replace(/---+/g, "─".repeat(40));
 }
 
-export function ReportCard({ report }: Props) {
+export function ReportCard({ report, filename }: Props) {
   const [expanded, setExpanded] = useState(false);
+
+  const handleDownload = useCallback(() => {
+    const blob = new Blob([report], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename ?? "influencer-report.md";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [report, filename]);
 
   if (!report) return null;
 
@@ -47,12 +60,8 @@ export function ReportCard({ report }: Props) {
             <FileText className="size-4" />
             AI 推荐报告
           </CardTitle>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled
-            title="功能即将上线"
-          >
+          <Button variant="outline" size="sm" onClick={handleDownload}>
+            <Download className="mr-1 size-3.5" />
             下载报告
           </Button>
         </div>

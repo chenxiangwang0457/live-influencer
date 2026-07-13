@@ -171,6 +171,45 @@ export default function AnalyticsPage() {
                 </CardContent>
               </Card>
 
+              {/* Trend Note */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">评分趋势</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-end gap-2 h-32">
+                    {[1, 2, 3, 4, 5].map((star) => {
+                      const count = stats.distribution[String(star)] ?? 0;
+                      const maxCount = Math.max(
+                        ...Object.values(stats.distribution),
+                        1,
+                      );
+                      const height = (count / maxCount) * 100;
+                      return (
+                        <div
+                          key={star}
+                          className="flex flex-1 flex-col items-center gap-1"
+                        >
+                          <span className="text-xs font-medium">
+                            {count}
+                          </span>
+                          <div
+                            className="w-full rounded-t bg-yellow-400 transition-all"
+                            style={{ height: `${Math.max(height, 4)}%` }}
+                          />
+                          <span className="text-muted-foreground text-xs">
+                            {star}★
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="text-muted-foreground mt-4 text-xs">
+                    趋势数据按时间累计。随着反馈量增加，评分分布将反映达人合作效果的真实趋势。
+                  </p>
+                </CardContent>
+              </Card>
+
               {/* Weights info */}
               <Card>
                 <CardHeader>

@@ -24,6 +24,10 @@ class Feedback(Base):
     )
     rating: Mapped[int] = mapped_column(Integer, nullable=False)
     review: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # B方案扩展点：品牌方手动评分(A方案) + 平台自动回传(B方案)
+    # 当接入抖音/快手等平台投放API后，可通过 webhook 或定时任务自动写入此字段：
+    #   {"gmv": 500000, "roi": 3.2, "conversion_rate": 0.05, "impressions": 1000000}
+    # 配合 feedbacks 表的 rating/review 字段，双重反馈驱动评分模型优化
     sales_performance: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     tags: Mapped[list | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
