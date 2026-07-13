@@ -4,6 +4,7 @@ from __future__ import annotations
 import math
 
 from app.influencer.services.data_platform.base import InfluencerDTO
+from app.influencer.services.errors import ScoringError
 
 _DEFAULT_WEIGHTS = {
     "match": 0.35,
@@ -26,12 +27,19 @@ class ScoreEngine:
     def score_influencer(
         self, influencer: InfluencerDTO, criteria: dict
     ) -> dict[str, float]:
-        return {
+        scores = {
             "match_score": self._score_match(influencer, criteria),
             "reach_score": self._score_reach(influencer),
             "sales_score": self._score_sales(influencer),
             "value_score": self._score_value(influencer),
         }
+        for dim, val in scores.items():
+            if not (0 <= val <= 100):
+                raise ScoringError(
+                    f"Invalid {dim}={val:.1f} for influencer "
+                    f"{influencer.platform_uid}: score must be in [0, 100]"
+                )
+        return scores
 
     def calculate_total(
         self, influencer: InfluencerDTO, criteria: dict

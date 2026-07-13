@@ -4,6 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.influencer.services.data_platform.base import InfluencerDTO
+from app.influencer.services.errors import MatchingError
 from app.influencer.services.scoring import ScoreEngine
 
 
@@ -26,10 +27,17 @@ class MatchingEngine:
     def match_batch(
         self, influencers: list[InfluencerDTO], criteria: dict
     ) -> list[MatchResult]:
+        if not influencers:
+            return []
         results = []
         for inf in influencers:
-            scores = self._scorer.score_influencer(inf, criteria)
-            total = self._scorer.calculate_total(inf, criteria)
+            try:
+                scores = self._scorer.score_influencer(inf, criteria)
+                total = self._scorer.calculate_total(inf, criteria)
+            except Exception as e:
+                raise MatchingError(
+                    f"Failed to score influencer {inf.platform_uid}: {e}"
+                ) from e
             results.append(
                 MatchResult(
                     influencer=inf,

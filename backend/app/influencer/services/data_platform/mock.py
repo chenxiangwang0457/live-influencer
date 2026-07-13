@@ -8,6 +8,7 @@ from app.influencer.services.data_platform.base import (
     InfluencerDTO,
     SearchCriteria,
 )
+from app.influencer.services.errors import DataPlatformError
 
 _CATEGORIES = ["美妆", "食品", "服饰", "母婴", "3C数码", "家居", "运动", "图书"]
 _CONTENT_STYLES = ["测评", "种草", "教程", "vlog", "搞笑", "剧情", "颜值", "知识"]
@@ -79,6 +80,16 @@ class MockDataAdapter(DataPlatformAdapter):
     async def search_influencers(
         self, criteria: SearchCriteria
     ) -> tuple[list[InfluencerDTO], int]:
+        try:
+            return self._search(criteria)
+        except DataPlatformError:
+            raise
+        except Exception as e:
+            raise DataPlatformError(
+                f"Mock search failed for category={criteria.category}: {e}"
+            ) from e
+
+    def _search(self, criteria: SearchCriteria) -> tuple[list[InfluencerDTO], int]:
         results = self._influencers[:]
 
         if criteria.keyword:
