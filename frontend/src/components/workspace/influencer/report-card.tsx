@@ -10,23 +10,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { stripBasicMarkdown } from "@/core/influencer/types";
 
 interface Props {
   report: string;
   filename?: string;
-}
-
-function stripBasicMarkdown(md: string): string {
-  return md
-    .replace(/^#{1,6}\s+/gm, "")
-    .replace(/\*\*(.+?)\*\*/g, "$1")
-    .replace(/\*(.+?)\*/g, "$1")
-    .replace(/`(.+?)`/g, "$1")
-    .replace(/\[(.+?)\]\(.+?\)/g, "$1")
-    .replace(/^[-*+]\s+/gm, "• ")
-    .replace(/^\d+\.\s+/gm, "")
-    .replace(/^>\s?/gm, "")
-    .replace(/---+/g, "─".repeat(40));
 }
 
 export function ReportCard({ report, filename }: Props) {

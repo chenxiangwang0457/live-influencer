@@ -4,21 +4,12 @@ import { ChevronDown, ChevronUp, Download } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { stripBasicMarkdown } from "@/core/influencer/types";
 import { cn } from "@/lib/utils";
 
 interface ReportArtifactMsgProps {
   title?: string;
   content: string;
-}
-
-/** Very basic Markdown-to-plain-text: strip common inline formatting. */
-function stripBasicMarkdown(md: string): string {
-  return md
-    .replace(/^#{1,6}\s+/gm, "")
-    .replace(/\*\*(.+?)\*\*/g, "$1")
-    .replace(/\*(.+?)\*/g, "$1")
-    .replace(/`(.+?)`/g, "$1")
-    .replace(/\[([^\]]+)]\([^)]+\)/g, "$1");
 }
 
 const COLLAPSE_THRESHOLD = 2000;

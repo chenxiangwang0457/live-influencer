@@ -18,17 +18,30 @@ def _init_test_db():
 
     async def _init():
         # Import models so their tables are registered in Base.metadata
+        import app.influencer.models.influencer  # noqa: F401
         import app.influencer.models.selection  # noqa: F401
+        from app.influencer.models.influencer import Influencer
         from deerflow.persistence.base import Base
 
         await init_engine("sqlite", url="sqlite+aiosqlite:///:memory:", sqlite_dir=".")
 
-        # Ensure our tables are created (bootstrap_schema may have done this,
-        # but be explicit for test isolation)
         sf = get_session_factory()
         async with sf() as session:
             async with session.bind.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
+
+            # Seed a test influencer so candidate FK references work
+            test_inf = Influencer(
+                platform="douyin",
+                platform_uid="mock_dy_test_001",
+                nickname="测试达人",
+                category="美妆",
+                followers_count=500000,
+                engagement_rate=3.5,
+                avg_gmv=100000.0,
+            )
+            session.add(test_inf)
+            await session.commit()
 
     asyncio.run(_init())
 
@@ -57,7 +70,7 @@ async def test_create_selection(monkeypatch):
     transport = ASGITransport(app=_make_app())
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.post(
-            "/api/influencer/selections/",
+            "/api/influencer/selections",
             json={
                 "title": "测试选人任务",
                 "goal": "找3位美妆达人",
@@ -78,10 +91,10 @@ async def test_list_selections(monkeypatch):
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         # Create one first
         await client.post(
-            "/api/influencer/selections/",
+            "/api/influencer/selections",
             json={"title": "列表测试", "goal": "test", "criteria": {}},
         )
-        resp = await client.get("/api/influencer/selections/")
+        resp = await client.get("/api/influencer/selections")
     assert resp.status_code == 200
     data = resp.json()
     assert data["total"] >= 1
@@ -93,7 +106,7 @@ async def test_get_selection_detail(monkeypatch):
     transport = ASGITransport(app=_make_app())
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         created = await client.post(
-            "/api/influencer/selections/",
+            "/api/influencer/selections",
             json={"title": "详情测试", "goal": "test", "criteria": {"category": "美妆"}},
         )
         sid = created.json()["id"]
@@ -108,7 +121,7 @@ async def test_update_selection_status(monkeypatch):
     transport = ASGITransport(app=_make_app())
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         created = await client.post(
-            "/api/influencer/selections/",
+            "/api/influencer/selections",
             json={"title": "状态测试", "goal": "test", "criteria": {}},
         )
         sid = created.json()["id"]
@@ -147,7 +160,7 @@ async def test_add_candidate(monkeypatch):
 
         # Create selection
         created = await client.post(
-            "/api/influencer/selections/",
+            "/api/influencer/selections",
             json={"title": "添加候选测试", "goal": "test", "criteria": {"category": inf["category"]}},
         )
         sid = created.json()["id"]

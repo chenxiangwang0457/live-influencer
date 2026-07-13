@@ -85,6 +85,19 @@ export function getInitials(nickname: string): string {
   return nickname.slice(0, 2) || "?";
 }
 
+export function stripBasicMarkdown(md: string): string {
+  return md
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/\*(.+?)\*/g, "$1")
+    .replace(/`(.+?)`/g, "$1")
+    .replace(/\[(.+?)\]\(.+?\)/g, "$1")
+    .replace(/^[-*+]\s+/gm, "• ")
+    .replace(/^\d+\.\s+/gm, "")
+    .replace(/^>\s?/gm, "")
+    .replace(/---+/g, "─".repeat(40));
+}
+
 // ── Selection types ──
 
 export interface Selection {
