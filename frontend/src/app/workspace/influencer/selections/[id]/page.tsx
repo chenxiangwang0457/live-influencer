@@ -35,6 +35,7 @@ import {
   WorkspaceHeader,
 } from "@/components/workspace/workspace-container";
 import {
+  analyzeSelection,
   getInfluencerDetail,
   getSelection,
   removeCandidate,
@@ -42,8 +43,6 @@ import {
   updateSelection,
 } from "@/core/influencer/api";
 import {
-  formatFollowers,
-  formatPrice,
   SELECTION_STATUS_LABELS,
   type Influencer,
   type SelectionDetail,
@@ -210,46 +209,22 @@ export default function SelectionDetailPage() {
     setCompareOpen(true);
   }, []);
 
-  const handleAiRecommend = useCallback(() => {
-    if (!detail || detail.candidates.length === 0) {
+  const handleAiRecommend = useCallback(async () => {
+    if (!selectionId || !detail || detail.candidates.length === 0) {
       toast.info("请先添加候选达人");
       return;
     }
-    const lines: string[] = [
-      `# ${detail.title} - 智能推荐报告`,
-      "",
-      `**选人目标：** ${detail.goal ?? "未设定"}`,
-      `**候选人数：** ${detail.candidates.length} 位`,
-      `**生成时间：** ${new Date().toLocaleString("zh-CN")}`,
-      "",
-      "## 推荐排名",
-      "",
-    ];
-    const ranked = [...detail.candidates]
-      .sort((a, b) => b.match_score - a.match_score);
-    ranked.forEach((c, i) => {
-      const inf = influencerMap[c.influencer_id];
-      const name = inf?.nickname ?? c.influencer_id;
-      const cat = inf?.category ?? "-";
-      const followers = inf ? formatFollowers(inf.followers_count) : "-";
-      const gmv = inf ? formatPrice(inf.avg_gmv) : "-";
-      lines.push(
-        `**${i + 1}. ${name}**（${cat}） 匹配度 ${Math.round(c.match_score)} 分`,
-        `- 粉丝：${followers}  |  场均GMV：${gmv}`,
-        `- 理由：${c.match_reason ?? "待分析"}`,
-        "",
-      );
-    });
-    lines.push(
-      "## 建议",
-      "",
-      "1. 优先联系排名前 3 位的达人，获取合作报价",
-      "2. 建议在合作前查看达人的近期内容质量和粉丝互动情况",
-      "3. 合作后请提交反馈，系统将自动优化推荐模型",
-    );
-    setReport(lines.join("\n"));
-    toast.success("报告已生成");
-  }, [detail, influencerMap]);
+    try {
+      toast.info("正在分析...");
+      const result = await analyzeSelection(selectionId);
+      setReport(result.report);
+      // Refresh to get updated scores
+      void fetchDetail(selectionId);
+      toast.success("AI 分析完成");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "分析失败");
+    }
+  }, [selectionId, detail, fetchDetail]);
 
   const openEdit = useCallback(() => {
     if (!detail) return;

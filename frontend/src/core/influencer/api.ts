@@ -94,6 +94,22 @@ export async function updateSelection(
   if (!res.ok) throw new Error(`Update selection failed: ${res.statusText}`);
 }
 
+export async function analyzeSelection(
+  id: string,
+): Promise<{
+  report: string;
+  candidates: Array<{
+    id: string;
+    influencer_id: string;
+    match_score: number;
+    match_reason: string;
+  }>;
+}> {
+  const res = await fetch(`${BASE}/selections/${id}/analyze`, { method: "POST" });
+  if (!res.ok) throw new Error(`Analyze failed: ${res.statusText}`);
+  return res.json();
+}
+
 export async function addCandidate(
   selectionId: string,
   body: { influencer_id: string; added_by?: string },

@@ -1,6 +1,8 @@
 # backend/app/influencer/routers/influencers.py
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -193,6 +195,125 @@ async def update_selection(selection_id: str, body: UpdateSelectionRequest, requ
 
         await session.commit()
         return {"id": sel.id, "title": sel.title, "status": sel.status, "goal": sel.goal}
+
+
+@router.post("/selections/{selection_id}/analyze")
+async def analyze_selection(selection_id: str, request: Request):
+    """Run AI analysis on a selection: score candidates and generate report."""
+    from app.influencer.models.influencer import Influencer
+    from app.influencer.services.matching import MatchingEngine
+
+    sf = _get_session_factory()
+    async with sf() as session:
+        stmt = (
+            select(Selection)
+            .where(Selection.id == selection_id)
+            .options(selectinload(Selection.candidates))
+        )
+        result = await session.execute(stmt)
+        sel = result.scalar_one_or_none()
+
+        if sel is None:
+            return JSONResponse(status_code=404, content={"detail": "Selection not found"})
+
+        if not sel.candidates:
+            return JSONResponse(status_code=400, content={"detail": "No candidates in selection"})
+
+        # Load influencer data for each candidate
+        inf_map = {}
+        for c in sel.candidates:
+            inf_result = await session.execute(
+                select(Influencer).where(Influencer.id == c.influencer_id)
+            )
+            inf = inf_result.scalar_one_or_none()
+            if inf is not None:
+                inf_map[c.influencer_id] = inf
+
+        if not inf_map:
+            return JSONResponse(status_code=400, content={"detail": "No influencer data found"})
+
+        # Run matching engine on candidates
+        engine = MatchingEngine()
+        criteria = sel.criteria or {}
+
+        # Build InfluencerDTO list from DB models
+        from app.influencer.services.data_platform.base import InfluencerDTO
+
+        dtos = []
+        for inf in inf_map.values():
+            dto = InfluencerDTO(
+                platform=inf.platform,
+                platform_uid=inf.platform_uid,
+                nickname=inf.nickname,
+                avatar_url=inf.avatar_url or "",
+                category=inf.category,
+                sub_categories=inf.sub_categories or [],
+                followers_count=inf.followers_count,
+                avg_likes=inf.avg_likes,
+                avg_comments=inf.avg_comments,
+                avg_shares=inf.avg_shares,
+                engagement_rate=inf.engagement_rate,
+                avg_gmv=inf.avg_gmv,
+                avg_sales=inf.avg_sales,
+                price_range_min=inf.price_range_min,
+                price_range_max=inf.price_range_max,
+                demographics=inf.demographics or {},
+                content_style=inf.content_style or [],
+                brand_history=inf.brand_history or [],
+                data_source=inf.data_source,
+            )
+            dtos.append(dto)
+
+        # Score all candidates
+        scored = engine.match_batch(dtos, criteria)
+
+        # Update candidate match_scores in DB
+        score_map = {r.influencer.platform_uid: r for r in scored}
+        for c in sel.candidates:
+            inf = inf_map.get(c.influencer_id)
+            if inf and inf.platform_uid in score_map:
+                r = score_map[inf.platform_uid]
+                c.match_score = r.total_score
+                c.match_reason = (
+                    f"匹配度{r.match_score:.0f} | 传播力{r.reach_score:.0f} | "
+                    f"带货力{r.sales_score:.0f} | 性价比{r.value_score:.0f}"
+                )
+
+        await session.commit()
+
+        # Build report data
+        picks = []
+        for r in scored[:10]:
+            picks.append({
+                "platform_uid": r.influencer.platform_uid,
+                "nickname": r.influencer.nickname,
+                "score": r.total_score,
+                "reason": (
+                    f"匹配度{r.match_score:.0f} | 传播力{r.reach_score:.0f} | "
+                    f"带货力{r.sales_score:.0f} | 性价比{r.value_score:.0f}"
+                ),
+            })
+
+        # Use the report tool to generate markdown
+        from deerflow.tools.influencer.recommend_report import build_recommend_report_tool
+
+        report_tool = build_recommend_report_tool(engine)
+        report = await report_tool.ainvoke({
+            "selection_json": json.dumps({"criteria": criteria, "picks": picks})
+        })
+
+        return {
+            "report": report,
+            "candidates": [
+                {
+                    "id": c.id,
+                    "influencer_id": c.influencer_id,
+                    "match_score": c.match_score,
+                    "match_reason": c.match_reason,
+                }
+                for c in sel.candidates
+            ],
+        }
 
 
 @router.post("/selections/{selection_id}/candidates")

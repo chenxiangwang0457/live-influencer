@@ -411,8 +411,23 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
 
     # Initialize influencer adapter before router registration
     from app.influencer.services.data_platform.mock import MockDataAdapter
+    from app.influencer.services.matching import MatchingEngine
+    from deerflow.tools.influencer.search_influencers import build_search_influencers_tool
+    from deerflow.tools.influencer.compare_influencers import build_compare_influencers_tool
+    from deerflow.tools.influencer.recommend_report import build_recommend_report_tool
+    from deerflow.tools.influencer.registry import register_influencer_tools
 
-    app.state.influencer_adapter = MockDataAdapter()
+    adapter = MockDataAdapter()
+    engine = MatchingEngine()
+    app.state.influencer_adapter = adapter
+
+    influencer_tools = [
+        build_search_influencers_tool(adapter, engine),
+        build_compare_influencers_tool(adapter),
+        build_recommend_report_tool(engine),
+    ]
+    register_influencer_tools(influencer_tools)
+    logger.info("Registered %d influencer tools", len(influencer_tools))
 
     # Include routers
     # Models API is mounted at /api/models
