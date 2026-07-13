@@ -302,6 +302,10 @@ async def analyze_selection(selection_id: str, request: Request):
             "selection_json": json.dumps({"criteria": criteria, "picks": picks})
         })
 
+        # Save report summary to the selection record
+        sel.result_summary = report[:500]
+        await session.commit()
+
         return {
             "report": report,
             "candidates": [
@@ -313,6 +317,146 @@ async def analyze_selection(selection_id: str, request: Request):
                 }
                 for c in sel.candidates
             ],
+        }
+
+
+@router.get("/selections/{selection_id}/report")
+async def get_selection_report(selection_id: str, request: Request):
+    """Return the latest report for a selection.
+
+    If ``result_summary`` exists on the selection, return it directly.
+    Otherwise regenerate a report from the current candidate scores.
+    Returns ``{report: "...", generated_at: "..."}``.
+    """
+    from datetime import datetime, timezone
+
+    from app.influencer.models.influencer import Influencer
+    from app.influencer.services.matching import MatchingEngine
+
+    sf = _get_session_factory()
+    async with sf() as session:
+        stmt = (
+            select(Selection)
+            .where(Selection.id == selection_id)
+            .options(selectinload(Selection.candidates))
+        )
+        result = await session.execute(stmt)
+        sel = result.scalar_one_or_none()
+
+        if sel is None:
+            return JSONResponse(status_code=404, content={"detail": "Selection not found"})
+
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        # Return cached summary if available
+        if sel.result_summary:
+            return {
+                "report": sel.result_summary,
+                "generated_at": sel.updated_at.isoformat() if sel.updated_at else now_iso,
+            }
+
+        # Regenerate from candidates
+        if not sel.candidates:
+            return {
+                "report": "No candidates in selection. Run analysis first.",
+                "generated_at": now_iso,
+            }
+
+        # Load influencer data for each candidate
+        inf_map = {}
+        for c in sel.candidates:
+            inf_result = await session.execute(
+                select(Influencer).where(Influencer.id == c.influencer_id)
+            )
+            inf = inf_result.scalar_one_or_none()
+            if inf is not None:
+                inf_map[c.influencer_id] = inf
+
+        if not inf_map:
+            return {
+                "report": "No influencer data found for candidates.",
+                "generated_at": now_iso,
+            }
+
+        # Build report data
+        from app.influencer.services.data_platform.base import InfluencerDTO
+
+        criteria = sel.criteria or {}
+        picks = []
+        for c in sel.candidates:
+            inf = inf_map.get(c.influencer_id)
+            if inf is None:
+                continue
+            picks.append({
+                "platform_uid": inf.platform_uid,
+                "nickname": inf.nickname,
+                "score": c.match_score,
+                "reason": c.match_reason or f"匹配度{c.match_score:.0f}",
+            })
+
+        from deerflow.tools.influencer.recommend_report import build_recommend_report_tool
+
+        engine = MatchingEngine()
+        report_tool = build_recommend_report_tool(engine)
+        report = await report_tool.ainvoke({
+            "selection_json": json.dumps({"criteria": criteria, "picks": picks})
+        })
+
+        # Cache the summary
+        sel.result_summary = report[:500]
+        await session.commit()
+
+        return {
+            "report": report,
+            "generated_at": now_iso,
+        }
+
+
+@router.get("/selections/{selection_id}/compare")
+async def compare_selection_candidates(selection_id: str, request: Request):
+    """Return structured comparison data for all candidates in a selection.
+
+    Returns ``{candidates: [{platform_uid, nickname, followers, engagement, gmv,
+    price_min, price_max, content_style, match_score}], metrics: [...]}``.
+    """
+    from app.influencer.models.influencer import Influencer
+
+    sf = _get_session_factory()
+    async with sf() as session:
+        stmt = (
+            select(Selection)
+            .where(Selection.id == selection_id)
+            .options(selectinload(Selection.candidates))
+        )
+        result = await session.execute(stmt)
+        sel = result.scalar_one_or_none()
+
+        if sel is None:
+            return JSONResponse(status_code=404, content={"detail": "Selection not found"})
+
+        candidates_data = []
+        for c in sel.candidates:
+            inf_result = await session.execute(
+                select(Influencer).where(Influencer.id == c.influencer_id)
+            )
+            inf = inf_result.scalar_one_or_none()
+            if inf is None:
+                continue
+            candidates_data.append({
+                "platform_uid": inf.platform_uid,
+                "nickname": inf.nickname,
+                "followers": inf.followers_count,
+                "engagement": inf.engagement_rate,
+                "gmv": inf.avg_gmv,
+                "price_min": inf.price_range_min,
+                "price_max": inf.price_range_max,
+                "content_style": inf.content_style or [],
+                "match_score": c.match_score,
+            })
+
+        return {
+            "candidates": candidates_data,
+            "metrics": ["followers", "engagement", "gmv", "price"],
         }
 
 
@@ -575,6 +719,33 @@ async def feedback_stats(request: Request):
         }
 
 
+@router.get("/feedbacks/{feedback_id}")
+async def get_feedback_detail(feedback_id: str, request: Request):
+    """Get a single feedback entry by id. Returns 404 if not found."""
+    from app.influencer.models.feedback import Feedback
+
+    sf = _get_session_factory()
+    async with sf() as session:
+        result = await session.execute(
+            select(Feedback).where(Feedback.id == feedback_id)
+        )
+        fb = result.scalar_one_or_none()
+
+        if fb is None:
+            return JSONResponse(status_code=404, content={"detail": "Feedback not found"})
+
+        return {
+            "id": fb.id,
+            "influencer_id": fb.influencer_id,
+            "selection_id": fb.selection_id,
+            "rating": fb.rating,
+            "review": fb.review,
+            "tags": fb.tags,
+            "sales_performance": fb.sales_performance,
+            "created_at": fb.created_at.isoformat() if fb.created_at else None,
+        }
+
+
 # ═══════════════════════════════════════════
 #  Influencer Search & Detail Routes
 # ═══════════════════════════════════════════
@@ -621,6 +792,211 @@ async def search_influencers(
         "page": criteria.page,
         "page_size": criteria.page_size,
     }
+
+
+# ═══════════════════════════════════════════
+#  Score & Analytics Routes
+# ═══════════════════════════════════════════
+
+
+class BatchScoreRequest(BaseModel):
+    influencer_ids: list[str]
+
+
+@router.get("/scores/{influencer_id}")
+async def get_influencer_scores(influencer_id: str, request: Request):
+    """Get score details for a single influencer.
+
+    Looks up ``influencer_scores`` by ``influencer_id`` (DB id or platform_uid).
+    Returns ``{influencer_id, dimension, score, confidence, version, factors, updated_at}``
+    or 404 if no scores exist.
+    """
+    from app.influencer.models.feedback import InfluencerScore
+    from app.influencer.models.influencer import Influencer
+
+    sf = _get_session_factory()
+    async with sf() as session:
+        scores_result = await session.execute(
+            select(InfluencerScore).where(InfluencerScore.influencer_id == influencer_id)
+        )
+        scores = scores_result.scalars().all()
+
+        if not scores:
+            # Try resolving by platform_uid
+            inf_result = await session.execute(
+                select(Influencer).where(
+                    (Influencer.platform_uid == influencer_id)
+                    | (Influencer.id == influencer_id)
+                )
+            )
+            inf = inf_result.scalar_one_or_none()
+            if inf is not None:
+                scores_result = await session.execute(
+                    select(InfluencerScore).where(InfluencerScore.influencer_id == inf.id)
+                )
+                scores = scores_result.scalars().all()
+
+        if not scores:
+            return JSONResponse(
+                status_code=404, content={"detail": "No scores found for this influencer"}
+            )
+
+        # Return all score dimensions
+        data = []
+        for s in scores:
+            data.append({
+                "influencer_id": s.influencer_id,
+                "dimension": s.dimension,
+                "score": s.score,
+                "confidence": s.confidence,
+                "version": s.version,
+                "factors": s.factors,
+                "updated_at": s.updated_at.isoformat() if s.updated_at else None,
+            })
+
+        return {"scores": data}
+
+
+@router.post("/scores/batch")
+async def batch_refresh_scores(body: BatchScoreRequest, request: Request):
+    """Refresh scores for a batch of influencers.
+
+    Accepts ``{influencer_ids: [...]}``. Runs ``MatchingEngine`` on each
+    influencer (looked up by id or platform_uid) and upserts ``InfluencerScore``
+    rows. Returns the number of influencers updated.
+    """
+    from app.influencer.models.feedback import InfluencerScore
+    from app.influencer.models.influencer import Influencer
+    from app.influencer.services.matching import MatchingEngine
+    from app.influencer.services.data_platform.base import InfluencerDTO
+
+    sf = _get_session_factory()
+    engine = MatchingEngine()
+    updated = 0
+
+    async with sf() as session:
+        for uid in body.influencer_ids:
+            # Look up influencer
+            inf_result = await session.execute(
+                select(Influencer).where(
+                    (Influencer.id == uid) | (Influencer.platform_uid == uid)
+                )
+            )
+            inf = inf_result.scalar_one_or_none()
+            if inf is None:
+                continue
+
+            # Build DTO
+            dto = InfluencerDTO(
+                platform=inf.platform,
+                platform_uid=inf.platform_uid,
+                nickname=inf.nickname,
+                avatar_url=inf.avatar_url or "",
+                category=inf.category,
+                sub_categories=inf.sub_categories or [],
+                followers_count=inf.followers_count,
+                avg_likes=inf.avg_likes,
+                avg_comments=inf.avg_comments,
+                avg_shares=inf.avg_shares,
+                engagement_rate=inf.engagement_rate,
+                avg_gmv=inf.avg_gmv,
+                avg_sales=inf.avg_sales,
+                price_range_min=inf.price_range_min,
+                price_range_max=inf.price_range_max,
+                demographics=inf.demographics or {},
+                content_style=inf.content_style or [],
+                brand_history=inf.brand_history or [],
+                data_source=inf.data_source,
+            )
+
+            scores = engine._scorer.score_influencer(dto, {})
+            total = engine._scorer.calculate_total(dto, {})
+
+            # Upsert each dimension
+            dimension_scores = {
+                "overall": total,
+                "match": scores["match_score"],
+                "reach": scores["reach_score"],
+                "sales": scores["sales_score"],
+                "value": scores["value_score"],
+            }
+
+            for dim, score_val in dimension_scores.items():
+                existing = await session.execute(
+                    select(InfluencerScore).where(
+                        InfluencerScore.influencer_id == inf.id,
+                        InfluencerScore.dimension == dim,
+                    )
+                )
+                row = existing.scalar_one_or_none()
+                if row is not None:
+                    prev = row.score
+                    row.score = round(score_val, 2)
+                    row.version += 1
+                    row.factors = {"batch_refresh": True, "previous_score": prev}
+                else:
+                    row = InfluencerScore(
+                        influencer_id=inf.id,
+                        dimension=dim,
+                        score=round(score_val, 2),
+                        confidence=0.5,
+                        version=1,
+                        factors={"batch_refresh": True},
+                    )
+                    session.add(row)
+            updated += 1
+
+        await session.commit()
+        return {"updated": updated}
+
+
+@router.get("/analytics/weights")
+async def get_analytics_weights(request: Request):
+    """Return current scoring weights from the FeedbackService singleton.
+
+    Returns ``{weights: {match, reach, sales, value}}``.
+    """
+    from app.influencer.services.feedback import get_feedback_service
+
+    svc = get_feedback_service()
+    return {"weights": svc.weights}
+
+
+@router.get("/analytics/trends")
+async def get_analytics_trends(request: Request):
+    """Return feedback count and average rating by month.
+
+    Returns ``{trends: [{month: "2026-07", count: 5, avg_rating: 4.2}, ...]}``
+    ordered by month ascending.
+    """
+    from app.influencer.models.feedback import Feedback
+    from sqlalchemy import extract
+
+    sf = _get_session_factory()
+    async with sf() as session:
+        stmt = (
+            select(
+                extract("year", Feedback.created_at).label("year"),
+                extract("month", Feedback.created_at).label("month"),
+                func.count().label("count"),
+                func.avg(Feedback.rating).label("avg_rating"),
+            )
+            .group_by("year", "month")
+            .order_by("year", "month")
+        )
+        result = await session.execute(stmt)
+        rows = result.all()
+
+        trends = [
+            {
+                "month": f"{int(row.year):04d}-{int(row.month):02d}",
+                "count": row.count,
+                "avg_rating": round(float(row.avg_rating), 2) if row.avg_rating else None,
+            }
+            for row in rows
+        ]
+
+        return {"trends": trends}
 
 
 @router.get("/{platform_uid}")

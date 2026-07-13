@@ -12,8 +12,16 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import type { Influencer } from "@/core/influencer/types";
-import { formatFollowers, formatPrice, getInitials } from "@/core/influencer/types";
+import {
+  computeDimensionScores,
+  DIMENSION_LABELS,
+  formatFollowers,
+  formatPrice,
+  getInitials,
+} from "@/core/influencer/types";
 import { cn } from "@/lib/utils";
+
+import { MultiRadarChart } from "./radar-chart";
 
 interface CompareDrawerProps {
   open: boolean;
@@ -85,6 +93,25 @@ export function CompareDrawer({
     () => influencers.slice(0, MAX_COMPARE),
     [influencers],
   );
+
+  const radarSeries = useMemo(
+    () =>
+      displayList.map((inf) => {
+        const scores = computeDimensionScores(inf);
+        return {
+          name: inf.nickname,
+          data: [scores.match, scores.reach, scores.sales, scores.value],
+        };
+      }),
+    [displayList],
+  );
+
+  const radarLabels = [
+    DIMENSION_LABELS.match ?? "匹配度",
+    DIMENSION_LABELS.reach ?? "传播力",
+    DIMENSION_LABELS.sales ?? "带货力",
+    DIMENSION_LABELS.value ?? "性价比",
+  ];
 
   const metricExtremes = useMemo(() => {
     const extremes: Record<
@@ -158,6 +185,14 @@ export function CompareDrawer({
           </div>
         ) : (
           <div className="mt-4 overflow-x-auto">
+            {/* Multi-dimensional radar chart */}
+            <MultiRadarChart
+              series={radarSeries}
+              labels={radarLabels}
+              size={300}
+              className="mb-6"
+            />
+
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr>

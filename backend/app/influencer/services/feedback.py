@@ -11,7 +11,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Minimum confidence before weight adjustment kicks in
-_MIN_CONFIDENCE = 0.3
+_MIN_CONFIDENCE = 0.6
 # Learning rate for weight adjustments
 _LEARNING_RATE = 0.05
 # Maximum per-cycle weight change

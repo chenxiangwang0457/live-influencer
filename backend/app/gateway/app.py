@@ -415,6 +415,7 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
     from deerflow.tools.influencer.search_influencers import build_search_influencers_tool
     from deerflow.tools.influencer.compare_influencers import build_compare_influencers_tool
     from deerflow.tools.influencer.recommend_report import build_recommend_report_tool
+    from deerflow.tools.influencer.record_feedback import build_record_feedback_tool
     from deerflow.tools.influencer.registry import register_influencer_tools
 
     adapter = MockDataAdapter()
@@ -425,6 +426,9 @@ This gateway provides runtime endpoints for agent runs plus custom endpoints for
         build_search_influencers_tool(adapter, engine),
         build_compare_influencers_tool(adapter),
         build_recommend_report_tool(engine),
+        build_record_feedback_tool(
+            base_url=f"http://{config.host}:{config.port}",
+        ),
     ]
     register_influencer_tools(influencer_tools)
     logger.info("Registered %d influencer tools", len(influencer_tools))

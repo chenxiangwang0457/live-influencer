@@ -9,8 +9,16 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import type { Influencer } from "@/core/influencer/types";
-import { formatFollowers, formatPrice, getInitials } from "@/core/influencer/types";
+import {
+  computeDimensionScores,
+  DIMENSION_LABELS,
+  formatFollowers,
+  formatPrice,
+  getInitials,
+} from "@/core/influencer/types";
 import { cn } from "@/lib/utils";
+
+import { RadarChart } from "./radar-chart";
 
 interface InfluencerDetailProps {
   influencer: Influencer;
@@ -28,45 +36,6 @@ function getScoreBg(score: number): string {
   if (score >= 60) return "bg-yellow-500";
   return "bg-gray-400";
 }
-
-/** Derive approximate dimension scores from available metrics (MVP). */
-function computeDimensionScores(inf: Influencer) {
-  const toPercent = (v: number, max: number) =>
-    Math.min(100, Math.round((v / max) * 100));
-
-  const reachScore = Math.max(
-    toPercent(inf.followers_count, 10_000_000),
-    Math.min(100, Math.round(inf.engagement_rate * 1000)),
-  );
-
-  const salesScore = toPercent(inf.avg_sales, 100_000);
-
-  const valueScore =
-    inf.price_range_min > 0
-      ? toPercent(inf.avg_gmv / inf.price_range_min, 50)
-      : 50;
-
-  return {
-    match: inf.total_score ?? Math.round((reachScore + salesScore + valueScore) / 3),
-    reach: reachScore,
-    sales: salesScore,
-    value: valueScore,
-  };
-}
-
-const DIMENSION_LABELS: Record<string, string> = {
-  match: "综合匹配",
-  reach: "传播力",
-  sales: "带货力",
-  value: "性价比",
-};
-
-const DIMENSION_COLORS: Record<string, string> = {
-  match: "bg-chart-1",
-  reach: "bg-chart-2",
-  sales: "bg-chart-3",
-  value: "bg-chart-4",
-};
 
 export function InfluencerDetail({ influencer }: InfluencerDetailProps) {
   const dimensionScores = useMemo(
@@ -199,33 +168,29 @@ export function InfluencerDetail({ influencer }: InfluencerDetailProps) {
 
           <Separator />
 
-          {/* Dimension breakdown */}
-          <div className="space-y-3">
-            {Object.entries(dimensionScores).map(([key, score]) => (
-              <div key={key} className="flex items-center gap-3">
-                <span className="text-muted-foreground w-16 shrink-0 text-sm">
-                  {DIMENSION_LABELS[key] ?? key}
-                </span>
-                <div className="bg-muted h-2.5 flex-1 overflow-hidden rounded-full">
-                  <div
-                    className={cn(
-                      "h-full rounded-full transition-all duration-500",
-                      DIMENSION_COLORS[key] ?? "bg-primary",
-                    )}
-                    style={{ width: `${score}%` }}
-                  />
-                </div>
-                <span
-                  className={cn(
-                    "w-10 text-right text-sm font-medium",
-                    getScoreColor(score),
-                  )}
-                >
-                  {score}
-                </span>
-              </div>
-            ))}
-          </div>
+          {/* 4-dimension radar chart */}
+          <RadarChart
+            data={[
+              {
+                label: DIMENSION_LABELS.match ?? "匹配度",
+                value: dimensionScores.match,
+              },
+              {
+                label: DIMENSION_LABELS.reach ?? "传播力",
+                value: dimensionScores.reach,
+              },
+              {
+                label: DIMENSION_LABELS.sales ?? "带货力",
+                value: dimensionScores.sales,
+              },
+              {
+                label: DIMENSION_LABELS.value ?? "性价比",
+                value: dimensionScores.value,
+              },
+            ]}
+            size={260}
+            color="#3b82f6"
+          />
         </CardContent>
       </Card>
 

@@ -9,16 +9,19 @@ Exports:
     build_search_influencers_tool:  Factory for the search + score tool.
     build_compare_influencers_tool: Factory for the side-by-side comparison tool.
     build_recommend_report_tool:    Factory for the Markdown report tool.
+    build_record_feedback_tool:     Factory for the feedback recording tool.
 """
 
 from __future__ import annotations
 
 from deerflow.tools.influencer.compare_influencers import build_compare_influencers_tool
 from deerflow.tools.influencer.recommend_report import build_recommend_report_tool
+from deerflow.tools.influencer.record_feedback import build_record_feedback_tool
 from deerflow.tools.influencer.search_influencers import build_search_influencers_tool
 
 __all__ = [
     "build_search_influencers_tool",
     "build_compare_influencers_tool",
     "build_recommend_report_tool",
+    "build_record_feedback_tool",
 ]

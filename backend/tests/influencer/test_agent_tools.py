@@ -399,3 +399,68 @@ class TestRecommendReport:
             })
         })
         assert "多个类目" in result
+
+
+# ═══════════════════════════════════════════════════════════════════════
+# record_feedback
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class TestRecordFeedback:
+    """Tests for the ``record_feedback`` agent tool.
+
+    These tests validate input handling only — actual HTTP calls are not
+    made because there is no live Gateway server during unit test runs.
+    """
+
+    @pytest.fixture
+    def feedback_tool(self):
+        from deerflow.tools.influencer.record_feedback import build_record_feedback_tool
+
+        return build_record_feedback_tool(base_url="http://localhost:9999")
+
+    @pytest.mark.asyncio
+    async def test_invalid_json_returns_error(self, feedback_tool):
+        """Malformed JSON input returns an error."""
+        result = await feedback_tool.ainvoke({"feedback_json": "not-valid-json!!!!"})
+        data = json.loads(result)
+        assert "error" in data
+        assert "Invalid JSON" in data["error"]
+
+    @pytest.mark.asyncio
+    async def test_non_dict_input_returns_error(self, feedback_tool):
+        """Non-object JSON input returns an error."""
+        result = await feedback_tool.ainvoke({"feedback_json": "[1, 2, 3]"})
+        data = json.loads(result)
+        assert "error" in data
+        assert "JSON object" in data["error"]
+
+    @pytest.mark.asyncio
+    async def test_missing_influencer_id_returns_error(self, feedback_tool):
+        """Missing required influencer_id returns an error."""
+        result = await feedback_tool.ainvoke({
+            "feedback_json": json.dumps({"rating": 4})
+        })
+        data = json.loads(result)
+        assert "error" in data
+        assert "influencer_id" in data["error"]
+
+    @pytest.mark.asyncio
+    async def test_invalid_rating_returns_error(self, feedback_tool):
+        """Rating out of range returns an error."""
+        result = await feedback_tool.ainvoke({
+            "feedback_json": json.dumps({"influencer_id": "test_001", "rating": 6})
+        })
+        data = json.loads(result)
+        assert "error" in data
+        assert "rating" in data["error"]
+
+    @pytest.mark.asyncio
+    async def test_missing_rating_returns_error(self, feedback_tool):
+        """Missing rating field returns an error."""
+        result = await feedback_tool.ainvoke({
+            "feedback_json": json.dumps({"influencer_id": "test_001"})
+        })
+        data = json.loads(result)
+        assert "error" in data
+        assert "rating" in data["error"]

@@ -85,6 +85,45 @@ export function getInitials(nickname: string): string {
   return nickname.slice(0, 2) || "?";
 }
 
+export interface DimensionScores {
+  match: number;
+  reach: number;
+  sales: number;
+  value: number;
+}
+
+/** Derive approximate dimension scores (0-100) from available metrics (MVP). */
+export function computeDimensionScores(inf: Influencer): DimensionScores {
+  const toPercent = (v: number, max: number) =>
+    Math.min(100, Math.round((v / max) * 100));
+
+  const reachScore = Math.max(
+    toPercent(inf.followers_count, 10_000_000),
+    Math.min(100, Math.round(inf.engagement_rate * 1000)),
+  );
+
+  const salesScore = toPercent(inf.avg_sales, 100_000);
+
+  const valueScore =
+    inf.price_range_min > 0
+      ? toPercent(inf.avg_gmv / inf.price_range_min, 50)
+      : 50;
+
+  return {
+    match: inf.total_score ?? Math.round((reachScore + salesScore + valueScore) / 3),
+    reach: reachScore,
+    sales: salesScore,
+    value: valueScore,
+  };
+}
+
+export const DIMENSION_LABELS: Record<string, string> = {
+  match: "匹配度",
+  reach: "传播力",
+  sales: "带货力",
+  value: "性价比",
+};
+
 export function stripBasicMarkdown(md: string): string {
   return md
     .replace(/^#{1,6}\s+/gm, "")
