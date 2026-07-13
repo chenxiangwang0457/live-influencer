@@ -28,6 +28,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { AddInfluencerDialog } from "@/components/workspace/influencer/add-influencer-dialog";
 import { CandidateTable } from "@/components/workspace/influencer/candidate-table";
 import { CompareDrawer } from "@/components/workspace/influencer/compare-drawer";
+import { FeedbackForm } from "@/components/workspace/influencer/feedback-form";
 import { ReportCard } from "@/components/workspace/influencer/report-card";
 import {
   WorkspaceBody,
@@ -36,6 +37,7 @@ import {
 } from "@/components/workspace/workspace-container";
 import {
   analyzeSelection,
+  createFeedback,
   getInfluencerDetail,
   getSelection,
   removeCandidate,
@@ -350,6 +352,23 @@ export default function SelectionDetailPage() {
                 onCompare={handleCompare}
               />
             </div>
+
+            {/* Feedback Forms */}
+            {detail.candidates
+              .filter((c) => c.status === "selected")
+              .map((c) => {
+                const inf = influencerMap[c.influencer_id];
+                if (!inf) return null;
+                return (
+                  <FeedbackForm
+                    key={c.id}
+                    influencerName={inf.nickname}
+                    influencerId={c.influencer_id}
+                    selectionId={selectionId}
+                    onSubmit={createFeedback}
+                  />
+                );
+              })}
 
             {/* Edit Dialog */}
             <Dialog open={editOpen} onOpenChange={setEditOpen}>

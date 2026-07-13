@@ -220,6 +220,7 @@ export const zhCN: Translations = {
     scheduledTasks: "定时任务",
     influencers: "达人广场",
     influencerSelections: "选人任务",
+    influencerAnalytics: "反馈分析",
     agentsDisabledTooltip: "功能未启用",
   },
 

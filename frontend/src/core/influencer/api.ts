@@ -134,6 +134,32 @@ export async function removeCandidate(
   if (!res.ok) throw new Error(`Remove candidate failed: ${res.statusText}`);
 }
 
+export async function createFeedback(body: {
+  influencer_id: string;
+  selection_id?: string;
+  rating: number;
+  review?: string;
+  tags?: string[];
+}): Promise<{ id: string; score_updated: boolean; weights_adjusted?: boolean }> {
+  const res = await fetch(`${BASE}/feedbacks`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Feedback failed: ${res.statusText}`);
+  return res.json();
+}
+
+export async function getFeedbackStats(): Promise<{
+  total: number;
+  avg_rating: number | null;
+  distribution: Record<string, number>;
+}> {
+  const res = await fetch(`${BASE}/feedbacks/stats`);
+  if (!res.ok) throw new Error(`Stats failed: ${res.statusText}`);
+  return res.json();
+}
+
 export async function updateCandidate(
   selectionId: string,
   candidateId: string,

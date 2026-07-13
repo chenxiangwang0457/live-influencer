@@ -404,6 +404,178 @@ async def update_candidate(
 
 
 # ═══════════════════════════════════════════
+#  Feedback Routes
+# ═══════════════════════════════════════════
+
+class CreateFeedbackRequest(BaseModel):
+    selection_id: str | None = None
+    influencer_id: str
+    rating: int
+    review: str | None = None
+    tags: list[str] | None = None
+
+
+@router.post("/feedbacks")
+async def create_feedback(body: CreateFeedbackRequest, request: Request):
+    """Submit collaboration feedback for an influencer."""
+    from app.influencer.models.feedback import Feedback, InfluencerScore
+    from app.influencer.services.feedback import get_feedback_service
+
+    if body.rating < 1 or body.rating > 5:
+        return JSONResponse(status_code=422, content={"detail": "Rating must be 1-5"})
+
+    sf = _get_session_factory()
+    async with sf() as session:
+        fb = Feedback(
+            selection_id=body.selection_id,
+            influencer_id=body.influencer_id,
+            rating=body.rating,
+            review=body.review,
+            tags=body.tags,
+        )
+        session.add(fb)
+
+        # Look up current predicted score for this influencer
+        predicted_score = None
+        score_result = await session.execute(
+            select(InfluencerScore)
+            .where(InfluencerScore.influencer_id == body.influencer_id)
+            .where(InfluencerScore.dimension == "overall")
+        )
+        existing_score = score_result.scalar_one_or_none()
+        if existing_score is not None:
+            predicted_score = existing_score.score
+
+        # Update or create influencer scores based on feedback
+        actual_score = body.rating * 20.0  # Convert 1-5 to 0-100 scale
+        new_confidence = (
+            min(1.0, existing_score.confidence + 0.1)
+            if existing_score
+            else 0.3
+        )
+
+        if existing_score is not None:
+            # Blend old and new scores weighted by confidence
+            alpha = existing_score.confidence
+            blended = existing_score.score * alpha + actual_score * (1 - alpha)
+            existing_score.score = round(blended, 2)
+            existing_score.confidence = new_confidence
+            existing_score.version += 1
+            existing_score.factors = {
+                "last_feedback_rating": body.rating,
+                "feedback_count": existing_score.version,
+            }
+        else:
+            score = InfluencerScore(
+                influencer_id=body.influencer_id,
+                dimension="overall",
+                score=actual_score,
+                confidence=new_confidence,
+                version=1,
+                factors={
+                    "last_feedback_rating": body.rating,
+                    "feedback_count": 1,
+                },
+            )
+            session.add(score)
+
+        # Process feedback for weight optimization
+        svc = get_feedback_service()
+        new_weights = svc.process_feedback(
+            rating=body.rating,
+            predicted_score=predicted_score,
+        )
+
+        await session.commit()
+        await session.refresh(fb)
+
+        result = {
+            "id": fb.id,
+            "influencer_id": fb.influencer_id,
+            "rating": fb.rating,
+            "review": fb.review,
+            "tags": fb.tags,
+            "created_at": fb.created_at.isoformat() if fb.created_at else None,
+            "score_updated": True,
+        }
+        if new_weights:
+            result["weights_adjusted"] = True
+        return result
+
+
+@router.get("/feedbacks")
+async def list_feedbacks(
+    request: Request,
+    influencer_id: str | None = None,
+    selection_id: str | None = None,
+    page: int = 1,
+    page_size: int = 20,
+):
+    """List feedbacks with optional filters."""
+    from app.influencer.models.feedback import Feedback
+
+    sf = _get_session_factory()
+    async with sf() as session:
+        stmt = select(Feedback).order_by(Feedback.created_at.desc())
+        count_stmt = select(func.count()).select_from(Feedback)
+
+        if influencer_id:
+            stmt = stmt.where(Feedback.influencer_id == influencer_id)
+            count_stmt = count_stmt.where(Feedback.influencer_id == influencer_id)
+        if selection_id:
+            stmt = stmt.where(Feedback.selection_id == selection_id)
+            count_stmt = count_stmt.where(Feedback.selection_id == selection_id)
+
+        total = (await session.execute(count_stmt)).scalar() or 0
+        offset = (page - 1) * page_size
+        stmt = stmt.offset(offset).limit(page_size)
+        result = await session.execute(stmt)
+        rows = result.scalars().all()
+
+        return {
+            "data": [
+                {
+                    "id": r.id,
+                    "influencer_id": r.influencer_id,
+                    "selection_id": r.selection_id,
+                    "rating": r.rating,
+                    "review": r.review,
+                    "tags": r.tags,
+                    "created_at": r.created_at.isoformat() if r.created_at else None,
+                }
+                for r in rows
+            ],
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+        }
+
+
+@router.get("/feedbacks/stats")
+async def feedback_stats(request: Request):
+    """Get feedback statistics."""
+    from app.influencer.models.feedback import Feedback
+
+    sf = _get_session_factory()
+    async with sf() as session:
+        total_result = await session.execute(select(func.count()).select_from(Feedback))
+        total = total_result.scalar() or 0
+        avg_result = await session.execute(select(func.avg(Feedback.rating)).select_from(Feedback))
+        avg_rating = avg_result.scalar()
+        dist = {}
+        for r in range(1, 6):
+            cnt_result = await session.execute(
+                select(func.count()).select_from(Feedback).where(Feedback.rating == r)
+            )
+            dist[str(r)] = cnt_result.scalar() or 0
+        return {
+            "total": total,
+            "avg_rating": round(float(avg_rating), 2) if avg_rating else None,
+            "distribution": dist,
+        }
+
+
+# ═══════════════════════════════════════════
 #  Influencer Search & Detail Routes
 # ═══════════════════════════════════════════
 
