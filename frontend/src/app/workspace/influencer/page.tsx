@@ -5,10 +5,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FilterPanel } from "@/components/workspace/influencer/filter-panel";
 import { InfluencerCard } from "@/components/workspace/influencer/influencer-card";
+import { SearchBar } from "@/components/workspace/influencer/search-bar";
 import {
   WorkspaceBody,
   WorkspaceContainer,
@@ -151,26 +151,18 @@ export default function InfluencerSquarePage() {
           </div>
 
           {/* Search Bar */}
-          <div className="flex gap-2">
-            <Input
-              placeholder="搜索达人名称、品类..."
-              value={keyword}
-              onChange={(e) => handleKeywordChange(e.target.value)}
-              className="flex-1"
-            />
-            <Button
-              onClick={() => {
-                const newCriteria = {
-                  ...filterCriteria,
-                  keyword: keyword || undefined,
-                };
-                setCurrentFilterCriteria(newCriteria);
-                setPage(1);
-              }}
-            >
-              搜索
-            </Button>
-          </div>
+          <SearchBar
+            keyword={keyword}
+            onKeywordChange={handleKeywordChange}
+            onSearch={() => {
+              const newCriteria = {
+                ...filterCriteria,
+                keyword: keyword || undefined,
+              };
+              setCurrentFilterCriteria(newCriteria);
+              setPage(1);
+            }}
+          />
 
           {/* Filter Panel */}
           <FilterPanel onFilterChange={handleFilterChange} />

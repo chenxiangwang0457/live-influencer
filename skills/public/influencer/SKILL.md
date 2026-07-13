@@ -8,6 +8,7 @@ allowed-tools:
   - record_feedback
   - read_file
   - write_file
+  - task
 license: MIT
 ---
 
@@ -18,10 +19,16 @@ license: MIT
 - 需要对比分析多位达人
 - 需要生成达人推荐报告
 
-## Workflow
-1. 理解品牌需求（类目、预算、粉丝量级、转化要求）
-2. 使用 search_influencers 搜索候选人
-3. 为 Top 候选人派遣专业分析 subagent（fan-analyst/content-analyst/commercial-analyst/risk-scanner）
-4. 使用 compare_influencers 横向对比
-5. 使用 recommend_report 生成推荐报告
-6. 合作完成后使用 record_feedback 记录反馈
+## Workflow (MUST follow this order)
+1. 理解需求 — 确认类目/粉丝/预算/转化要求
+2. 搜索初筛 — search_influencers → 获取得分排序的候选人
+3. 并行分析 — 对 Top 6 候选人同时派遣 fan-analyst / content-analyst / commercial-analyst（最多3个并行）
+4. 风险扫描 — 任一 analyst 完成后立即派遣 risk-scanner
+5. 对比报告 — compare_influencers + recommend_report
+6. 确认闭环 — 呈现结果，等待用户决策，保存到选人任务
+
+## Fallback Rules (MUST apply)
+- SubAgent timeout (>30s): 标记该维度"暂不可用"，用剩余维度计算总分
+- Risk scan no result: 标记"未评估"，不扣分
+- ALL subagents fail: 降级为纯数据对比
+- Search empty: 提示放宽条件
